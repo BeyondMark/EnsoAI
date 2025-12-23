@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, globalShortcut } from 'electron';
 import { electronApp, optimizer } from '@electron-toolkit/utils';
 import { createMainWindow } from './windows/MainWindow';
 import { registerIpcHandlers } from './ipc';
@@ -30,6 +30,11 @@ app.whenReady().then(async () => {
 
   mainWindow = createMainWindow();
 
+  // Register Cmd+Option+I to open DevTools (works in production too)
+  globalShortcut.register('CommandOrControl+Option+I', () => {
+    mainWindow?.webContents.toggleDevTools();
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createMainWindow();
@@ -41,6 +46,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 // Handle uncaught errors
