@@ -38,7 +38,7 @@ export class AppDetector {
 
     // Editors - Mainstream
     { name: 'Xcode', bundleId: 'com.apple.dt.Xcode', category: AppCategory.Editor },
-    { name: 'Visual Studio Code', bundleId: 'com.microsoft.VSCode', category: AppCategory.Editor },
+    { name: 'VS Code', bundleId: 'com.microsoft.VSCode', category: AppCategory.Editor },
     { name: 'VSCodium', bundleId: 'com.visualstudio.code.oss', category: AppCategory.Editor },
     { name: 'Cursor', bundleId: 'com.todesktop.230313mzl4w4u92', category: AppCategory.Editor },
     { name: 'Windsurf', bundleId: 'com.exafunction.windsurf', category: AppCategory.Editor },
@@ -116,7 +116,7 @@ export class AppDetector {
 
       // Editors
       {
-        name: 'Visual Studio Code',
+        name: 'VS Code',
         id: 'com.microsoft.VSCode',
         category: AppCategory.Editor,
         exePaths: [
