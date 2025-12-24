@@ -144,27 +144,29 @@ export class GitService {
   }
 
   async getFileDiff(filePath: string, staged: boolean): Promise<FileDiff> {
-    const absolutePath = path.join(this.workdir, filePath);
+    // Validate path to prevent path traversal attacks
+    const absolutePath = path.resolve(this.workdir, filePath);
+    const relativePath = path.relative(this.workdir, absolutePath);
+
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new Error('Invalid file path: path traversal detected');
+    }
 
     let original = '';
     let modified = '';
 
-    try {
-      // Get original content from HEAD (or index for staged)
-      if (staged) {
-        // For staged: compare HEAD vs index
-        original = await this.git.show([`HEAD:${filePath}`]).catch(() => '');
-        modified = await this.git.show([`:${filePath}`]).catch(() => '');
-      } else {
-        // For unstaged: compare index vs working tree
-        original = await this.git.show([`:${filePath}`]).catch(() => {
-          // If not in index, try HEAD
-          return this.git.show([`HEAD:${filePath}`]).catch(() => '');
-        });
-        modified = await fs.readFile(absolutePath, 'utf-8').catch(() => '');
-      }
-    } catch {
-      // File might be new or deleted
+    // Get original content from HEAD (or index for staged)
+    if (staged) {
+      // For staged: compare HEAD vs index
+      original = await this.git.show([`HEAD:${filePath}`]).catch(() => '');
+      modified = await this.git.show([`:${filePath}`]).catch(() => '');
+    } else {
+      // For unstaged: compare index vs working tree
+      original = await this.git.show([`:${filePath}`]).catch(() => {
+        // If not in index, try HEAD
+        return this.git.show([`HEAD:${filePath}`]).catch(() => '');
+      });
+      modified = await fs.readFile(absolutePath, 'utf-8').catch(() => '');
     }
 
     return { path: filePath, original, modified };
@@ -179,11 +181,23 @@ export class GitService {
   }
 
   async discard(filePath: string): Promise<void> {
+    // Validate path to prevent path traversal attacks
+    const absolutePath = path.resolve(this.workdir, filePath);
+    const relativePath = path.relative(this.workdir, absolutePath);
+
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new Error('Invalid file path: path traversal detected');
+    }
+
     // Check if file is untracked
     const status = await this.git.status();
     if (status.not_added.includes(filePath)) {
+      // Check for symbolic links
+      const stats = await fs.lstat(absolutePath);
+      if (stats.isSymbolicLink()) {
+        throw new Error('Cannot discard symbolic links');
+      }
       // Delete untracked file
-      const absolutePath = path.join(this.workdir, filePath);
       await fs.unlink(absolutePath);
     } else {
       // Restore tracked file

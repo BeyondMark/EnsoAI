@@ -134,7 +134,12 @@ export function MainContent({
       {/* Content */}
       <div className="relative flex-1 overflow-hidden">
         {/* Chat tab - keep mounted to preserve terminal session */}
-        <div className={cn('absolute inset-0', activeTab !== 'chat' && 'invisible')}>
+        <div
+          className={cn(
+            'absolute inset-0',
+            activeTab === 'chat' ? 'z-10' : 'invisible pointer-events-none z-0'
+          )}
+        >
           {repoPath && worktreePath ? (
             <AgentPanel repoPath={repoPath} cwd={worktreePath} isActive={activeTab === 'chat'} />
           ) : (
@@ -156,15 +161,30 @@ export function MainContent({
           )}
         </div>
         {/* Terminal tab - keep mounted to preserve shell sessions */}
-        <div className={cn('absolute inset-0', activeTab !== 'terminal' && 'invisible')}>
+        <div
+          className={cn(
+            'absolute inset-0',
+            activeTab === 'terminal' ? 'z-10' : 'invisible pointer-events-none z-0'
+          )}
+        >
           <TerminalPanel cwd={worktreePath} isActive={activeTab === 'terminal'} />
         </div>
-        {/* File tab - use hidden instead of invisible for Monaco */}
-        <div className={cn('absolute inset-0', activeTab !== 'file' && 'hidden')}>
+        {/* File tab - keep mounted to preserve editor state */}
+        <div
+          className={cn(
+            'absolute inset-0',
+            activeTab === 'file' ? 'z-10' : 'invisible pointer-events-none z-0'
+          )}
+        >
           <FilePanel rootPath={worktreePath} isActive={activeTab === 'file'} />
         </div>
-        {/* Source Control tab - use hidden instead of invisible for Monaco */}
-        <div className={cn('absolute inset-0', activeTab !== 'source-control' && 'hidden')}>
+        {/* Source Control tab - keep mounted to preserve selection state */}
+        <div
+          className={cn(
+            'absolute inset-0',
+            activeTab === 'source-control' ? 'z-10' : 'invisible pointer-events-none z-0'
+          )}
+        >
           <SourceControlPanel
             rootPath={worktreePath}
             onExpandWorktree={onExpandWorktree}

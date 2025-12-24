@@ -127,6 +127,12 @@ export interface AgentKeybindings {
   prevSession: TerminalKeybinding;
 }
 
+// Source control keybindings
+export interface SourceControlKeybindings {
+  prevDiff: TerminalKeybinding;
+  nextDiff: TerminalKeybinding;
+}
+
 export const defaultTerminalKeybindings: TerminalKeybindings = {
   clear: { key: 'r', meta: true }, // Cmd/Win+R
   newTab: { key: 't', ctrl: true },
@@ -148,6 +154,11 @@ export const defaultAgentKeybindings: AgentKeybindings = {
   prevSession: { key: '[', meta: true }, // Cmd/Win+[
 };
 
+export const defaultSourceControlKeybindings: SourceControlKeybindings = {
+  prevDiff: { key: 'F7' }, // F7
+  nextDiff: { key: 'F8' }, // F8
+};
+
 interface SettingsState {
   theme: Theme;
   fontSize: number;
@@ -160,6 +171,7 @@ interface SettingsState {
   terminalKeybindings: TerminalKeybindings;
   mainTabKeybindings: MainTabKeybindings;
   agentKeybindings: AgentKeybindings;
+  sourceControlKeybindings: SourceControlKeybindings;
   agentSettings: AgentSettings;
   customAgents: CustomAgent[];
 
@@ -174,6 +186,7 @@ interface SettingsState {
   setTerminalKeybindings: (keybindings: TerminalKeybindings) => void;
   setMainTabKeybindings: (keybindings: MainTabKeybindings) => void;
   setAgentKeybindings: (keybindings: AgentKeybindings) => void;
+  setSourceControlKeybindings: (keybindings: SourceControlKeybindings) => void;
   setAgentEnabled: (agentId: string, enabled: boolean) => void;
   setAgentDefault: (agentId: string) => void;
   addCustomAgent: (agent: CustomAgent) => void;
@@ -204,6 +217,7 @@ export const useSettingsStore = create<SettingsState>()(
       terminalKeybindings: defaultTerminalKeybindings,
       mainTabKeybindings: defaultMainTabKeybindings,
       agentKeybindings: defaultAgentKeybindings,
+      sourceControlKeybindings: defaultSourceControlKeybindings,
       agentSettings: defaultAgentSettings,
       customAgents: [],
 
@@ -239,6 +253,7 @@ export const useSettingsStore = create<SettingsState>()(
       setTerminalKeybindings: (terminalKeybindings) => set({ terminalKeybindings }),
       setMainTabKeybindings: (mainTabKeybindings) => set({ mainTabKeybindings }),
       setAgentKeybindings: (agentKeybindings) => set({ agentKeybindings }),
+      setSourceControlKeybindings: (sourceControlKeybindings) => set({ sourceControlKeybindings }),
       setAgentEnabled: (agentId, enabled) => {
         const current = get().agentSettings;
         set({

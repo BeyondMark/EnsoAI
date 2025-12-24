@@ -1,7 +1,7 @@
 import { DiffEditor, loader } from '@monaco-editor/react';
 import { ChevronDown, ChevronUp, FileCode } from 'lucide-react';
 import * as monaco from 'monaco-editor';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Empty,
   EmptyDescription,
@@ -276,6 +276,43 @@ export function DiffViewer({
     [lineChanges, currentDiffIndex, boundaryHint, onPrevFile, onNextFile, highlightCurrentDiff]
   );
 
+  // Keyboard shortcuts for diff navigation
+  useEffect(() => {
+    const matchesKeybinding = (
+      e: KeyboardEvent,
+      binding: { key: string; ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean }
+    ) => {
+      const keyMatch = e.key.toLowerCase() === binding.key.toLowerCase();
+      const ctrlMatch = binding.ctrl !== undefined ? e.ctrlKey === binding.ctrl : !e.ctrlKey;
+      const altMatch = binding.alt !== undefined ? e.altKey === binding.alt : !e.altKey;
+      const shiftMatch = binding.shift !== undefined ? e.shiftKey === binding.shift : !e.shiftKey;
+      const metaMatch = binding.meta !== undefined ? e.metaKey === binding.meta : !e.metaKey;
+
+      return keyMatch && ctrlMatch && altMatch && shiftMatch && metaMatch;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!file) return;
+
+      const bindings = useSettingsStore.getState().sourceControlKeybindings;
+
+      if (matchesKeybinding(e, bindings.prevDiff)) {
+        e.preventDefault();
+        navigateToDiff('prev');
+        return;
+      }
+
+      if (matchesKeybinding(e, bindings.nextDiff)) {
+        e.preventDefault();
+        navigateToDiff('next');
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [file, navigateToDiff]);
+
   // Reset state when file changes
   const prevFileRef = useRef(file?.path);
   if (file?.path !== prevFileRef.current) {
@@ -360,7 +397,7 @@ export function DiffViewer({
               'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
             )}
             onClick={() => navigateToDiff('prev')}
-            title="上一处差异 (再按切换文件)"
+            title="上一处差异 (F7, 再按切换文件)"
           >
             <ChevronUp className="h-4 w-4" />
           </button>
@@ -373,7 +410,7 @@ export function DiffViewer({
               'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
             )}
             onClick={() => navigateToDiff('next')}
-            title="下一处差异 (再按切换文件)"
+            title="下一处差异 (F8, 再按切换文件)"
           >
             <ChevronDown className="h-4 w-4" />
           </button>

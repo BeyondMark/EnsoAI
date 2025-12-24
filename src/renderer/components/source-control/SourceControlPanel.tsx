@@ -1,5 +1,14 @@
 import { GitBranch, GripVertical } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Empty,
@@ -44,6 +53,9 @@ export function SourceControlPanel({
   const [panelWidth, setPanelWidth] = useState(DEFAULT_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Discard confirmation dialog state
+  const [discardConfirmPath, setDiscardConfirmPath] = useState<string | null>(null);
 
   const staged = useMemo(() => changes?.filter((c) => c.staged) ?? [], [changes]);
   const unstaged = useMemo(() => changes?.filter((c) => !c.staged) ?? [], [changes]);
@@ -100,18 +112,20 @@ export function SourceControlPanel({
     [rootPath, unstageMutation]
   );
 
-  const handleDiscard = useCallback(
-    (path: string) => {
-      if (rootPath && window.confirm(`确定要放弃 "${path}" 的更改吗？此操作不可撤销。`)) {
-        discardMutation.mutate({ workdir: rootPath, path });
-        // Clear selection if discarding selected file
-        if (selectedFile?.path === path) {
-          setSelectedFile(null);
-        }
+  const handleDiscard = useCallback((path: string) => {
+    setDiscardConfirmPath(path);
+  }, []);
+
+  const handleConfirmDiscard = useCallback(() => {
+    if (rootPath && discardConfirmPath) {
+      discardMutation.mutate({ workdir: rootPath, path: discardConfirmPath });
+      // Clear selection if discarding selected file
+      if (selectedFile?.path === discardConfirmPath) {
+        setSelectedFile(null);
       }
-    },
-    [rootPath, discardMutation, selectedFile, setSelectedFile]
-  );
+    }
+    setDiscardConfirmPath(null);
+  }, [rootPath, discardConfirmPath, discardMutation, selectedFile, setSelectedFile]);
 
   // File navigation
   const currentFileIndex = selectedFile
@@ -199,6 +213,28 @@ export function SourceControlPanel({
           hasNextFile={currentFileIndex < allFiles.length - 1}
         />
       </div>
+
+      {/* Discard Confirmation Dialog */}
+      <AlertDialog
+        open={!!discardConfirmPath}
+        onOpenChange={(open) => !open && setDiscardConfirmPath(null)}
+      >
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>放弃更改</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要放弃 <span className="font-medium text-foreground">{discardConfirmPath}</span>{' '}
+              的更改吗？此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="outline">取消</Button>} />
+            <Button variant="destructive" onClick={handleConfirmDiscard}>
+              放弃更改
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </div>
   );
 }
