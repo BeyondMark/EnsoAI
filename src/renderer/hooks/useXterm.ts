@@ -130,6 +130,11 @@ export function useXterm({
   const hasBeenActivatedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const hasReceivedDataRef = useRef(false);
+  // Memoize command key to avoid dependency array issues
+  const commandKey = useMemo(
+    () => `${command.shell}:${command.args.join(' ')}`,
+    [command.shell, command.args]
+  );
   // rAF write buffer for smooth rendering
   const writeBufferRef = useRef('');
   const isFlushPendingRef = useRef(false);
@@ -406,7 +411,7 @@ export function useXterm({
       terminal.writeln(`\x1b[31mFailed to start terminal.\x1b[0m`);
       terminal.writeln(`\x1b[33mError: ${error}\x1b[0m`);
     }
-  }, [cwd, command.shell, command.args.join(' '), terminalRenderer]);
+  }, [cwd, commandKey, terminalRenderer]);
 
   // Lazy initialization: only init when first activated
   useEffect(() => {
