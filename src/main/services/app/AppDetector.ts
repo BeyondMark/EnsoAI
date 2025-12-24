@@ -27,57 +27,193 @@ interface WindowsApp {
 export class AppDetector {
   private static knownApps: KnownApp[] = [
     // Terminals
-    { name: 'Terminal', bundleId: 'com.apple.Terminal', category: AppCategory.Terminal },
-    { name: 'iTerm', bundleId: 'com.googlecode.iterm2', category: AppCategory.Terminal },
-    { name: 'Warp', bundleId: 'dev.warp.Warp-Stable', category: AppCategory.Terminal },
-    { name: 'Alacritty', bundleId: 'org.alacritty', category: AppCategory.Terminal },
-    { name: 'Kitty', bundleId: 'net.kovidgoyal.kitty', category: AppCategory.Terminal },
-    { name: 'Hyper', bundleId: 'co.zeit.hyper', category: AppCategory.Terminal },
-    { name: 'Ghostty', bundleId: 'com.mitchellh.ghostty', category: AppCategory.Terminal },
-    { name: 'Rio', bundleId: 'com.raphamorim.rio', category: AppCategory.Terminal },
+    {
+      name: 'Terminal',
+      bundleId: 'com.apple.Terminal',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'iTerm',
+      bundleId: 'com.googlecode.iterm2',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'Warp',
+      bundleId: 'dev.warp.Warp-Stable',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'Alacritty',
+      bundleId: 'org.alacritty',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'Kitty',
+      bundleId: 'net.kovidgoyal.kitty',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'Hyper',
+      bundleId: 'co.zeit.hyper',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'Ghostty',
+      bundleId: 'com.mitchellh.ghostty',
+      category: AppCategory.Terminal,
+    },
+    {
+      name: 'Rio',
+      bundleId: 'com.raphamorim.rio',
+      category: AppCategory.Terminal,
+    },
 
     // Editors - Mainstream
-    { name: 'Xcode', bundleId: 'com.apple.dt.Xcode', category: AppCategory.Editor },
-    { name: 'VS Code', bundleId: 'com.microsoft.VSCode', category: AppCategory.Editor },
-    { name: 'VSCodium', bundleId: 'com.visualstudio.code.oss', category: AppCategory.Editor },
-    { name: 'Cursor', bundleId: 'com.todesktop.230313mzl4w4u92', category: AppCategory.Editor },
-    { name: 'Windsurf', bundleId: 'com.exafunction.windsurf', category: AppCategory.Editor },
-    { name: 'Sublime Text', bundleId: 'com.sublimetext.4', category: AppCategory.Editor },
+    {
+      name: 'Xcode',
+      bundleId: 'com.apple.dt.Xcode',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'VS Code',
+      bundleId: 'com.microsoft.VSCode',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'VSCodium',
+      bundleId: 'com.visualstudio.code.oss',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'Cursor',
+      bundleId: 'com.todesktop.230313mzl4w4u92',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'Windsurf',
+      bundleId: 'com.exafunction.windsurf',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'Sublime',
+      bundleId: 'com.sublimetext.4',
+      category: AppCategory.Editor,
+    },
     { name: 'Nova', bundleId: 'com.panic.Nova', category: AppCategory.Editor },
-    { name: 'TextMate', bundleId: 'com.macromates.TextMate', category: AppCategory.Editor },
+    {
+      name: 'TextMate',
+      bundleId: 'com.macromates.TextMate',
+      category: AppCategory.Editor,
+    },
     { name: 'Zed', bundleId: 'dev.zed.Zed', category: AppCategory.Editor },
 
     // Editors - JetBrains
-    { name: 'Android Studio', bundleId: 'com.google.android.studio', category: AppCategory.Editor },
-    { name: 'IntelliJ IDEA', bundleId: 'com.jetbrains.intellij', category: AppCategory.Editor },
+    {
+      name: 'Android Studio',
+      bundleId: 'com.google.android.studio',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'IntelliJ IDEA',
+      bundleId: 'com.jetbrains.intellij',
+      category: AppCategory.Editor,
+    },
     {
       name: 'IntelliJ IDEA CE',
       bundleId: 'com.jetbrains.intellij.ce',
       category: AppCategory.Editor,
     },
-    { name: 'WebStorm', bundleId: 'com.jetbrains.WebStorm', category: AppCategory.Editor },
-    { name: 'PyCharm', bundleId: 'com.jetbrains.pycharm', category: AppCategory.Editor },
-    { name: 'PyCharm CE', bundleId: 'com.jetbrains.pycharm.ce', category: AppCategory.Editor },
-    { name: 'CLion', bundleId: 'com.jetbrains.CLion', category: AppCategory.Editor },
-    { name: 'GoLand', bundleId: 'com.jetbrains.goland', category: AppCategory.Editor },
-    { name: 'PhpStorm', bundleId: 'com.jetbrains.PhpStorm', category: AppCategory.Editor },
-    { name: 'Rider', bundleId: 'com.jetbrains.rider', category: AppCategory.Editor },
-    { name: 'AppCode', bundleId: 'com.jetbrains.AppCode', category: AppCategory.Editor },
-    { name: 'DataGrip', bundleId: 'com.jetbrains.datagrip', category: AppCategory.Editor },
-    { name: 'RustRover', bundleId: 'com.jetbrains.rustrover', category: AppCategory.Editor },
-    { name: 'Fleet', bundleId: 'com.jetbrains.fleet', category: AppCategory.Editor },
+    {
+      name: 'WebStorm',
+      bundleId: 'com.jetbrains.WebStorm',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'PyCharm',
+      bundleId: 'com.jetbrains.pycharm',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'PyCharm CE',
+      bundleId: 'com.jetbrains.pycharm.ce',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'CLion',
+      bundleId: 'com.jetbrains.CLion',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'GoLand',
+      bundleId: 'com.jetbrains.goland',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'PhpStorm',
+      bundleId: 'com.jetbrains.PhpStorm',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'Rider',
+      bundleId: 'com.jetbrains.rider',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'AppCode',
+      bundleId: 'com.jetbrains.AppCode',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'DataGrip',
+      bundleId: 'com.jetbrains.datagrip',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'RustRover',
+      bundleId: 'com.jetbrains.rustrover',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'Fleet',
+      bundleId: 'com.jetbrains.fleet',
+      category: AppCategory.Editor,
+    },
 
     // Editors - Others
     { name: 'Atom', bundleId: 'com.github.atom', category: AppCategory.Editor },
-    { name: 'BBEdit', bundleId: 'com.barebones.bbedit', category: AppCategory.Editor },
-    { name: 'CotEditor', bundleId: 'com.coteditor.CotEditor', category: AppCategory.Editor },
-    { name: 'MacVim', bundleId: 'org.vim.MacVim', category: AppCategory.Editor },
+    {
+      name: 'BBEdit',
+      bundleId: 'com.barebones.bbedit',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'CotEditor',
+      bundleId: 'com.coteditor.CotEditor',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'MacVim',
+      bundleId: 'org.vim.MacVim',
+      category: AppCategory.Editor,
+    },
     { name: 'Emacs', bundleId: 'org.gnu.Emacs', category: AppCategory.Editor },
-    { name: 'Brackets', bundleId: 'io.brackets.appshell', category: AppCategory.Editor },
-    { name: 'TextEdit', bundleId: 'com.apple.TextEdit', category: AppCategory.Editor },
+    {
+      name: 'Brackets',
+      bundleId: 'io.brackets.appshell',
+      category: AppCategory.Editor,
+    },
+    {
+      name: 'TextEdit',
+      bundleId: 'com.apple.TextEdit',
+      category: AppCategory.Editor,
+    },
 
     // System
-    { name: 'Finder', bundleId: 'com.apple.finder', category: AppCategory.Finder },
+    {
+      name: 'Finder',
+      bundleId: 'com.apple.finder',
+      category: AppCategory.Finder,
+    },
   ];
 
   // Windows known apps
