@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useSourceControlStore } from '@/stores/sourceControl';
 
@@ -197,7 +198,7 @@ function FileTreeNode({
               e.stopPropagation();
               onDiscard(file.path);
             }}
-            title="放弃更改"
+            title={t('Discard changes')}
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
@@ -229,6 +230,7 @@ export function ChangesTree({
   onDiscard,
   onDeleteUntracked,
 }: ChangesTreeProps) {
+  const { t } = useI18n();
   const { expandedFolders, toggleFolder } = useSourceControlStore();
   const stagedTree = useMemo(() => buildTree(staged), [staged]);
   const trackedTree = useMemo(() => buildTree(trackedChanges), [trackedChanges]);
@@ -294,6 +296,17 @@ export function ChangesTree({
     }
   }, [allExpanded, allFolderPaths, expandedFolders, toggleFolder]);
 
+  const isEmpty =
+    staged.length === 0 && trackedChanges.length === 0 && untrackedChanges.length === 0;
+
+  if (isEmpty) {
+    return (
+      <div className="flex h-full min-h-[120px] flex-col items-center justify-center text-center text-muted-foreground">
+        <p className="text-sm">{t('No changes')}</p>
+      </div>
+    );
+  }
+
   return (
     <ScrollArea className="h-full">
       <div className="space-y-4 p-3">
@@ -304,17 +317,17 @@ export function ChangesTree({
               type="button"
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               onClick={handleToggleAll}
-              title={allExpanded ? '折叠所有文件夹' : '展开所有文件夹'}
+              title={allExpanded ? t('Collapse all folders') : t('Expand all folders')}
             >
               {allExpanded ? (
                 <>
                   <ChevronsDownUp className="h-3.5 w-3.5" />
-                  折叠所有
+                  {t('Collapse all')}
                 </>
               ) : (
                 <>
                   <ChevronsUpDown className="h-3.5 w-3.5" />
-                  展开所有
+                  {t('Expand all')}
                 </>
               )}
             </button>
@@ -326,14 +339,14 @@ export function ChangesTree({
           <div className="space-y-1">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-xs font-medium text-muted-foreground">
-                暂存的更改 ({staged.length})
+                {t('Staged changes ({{count}})', { count: staged.length })}
               </h3>
               <button
                 type="button"
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={handleUnstageAll}
               >
-                全部取消暂存
+                {t('Unstage all')}
               </button>
             </div>
             <div className="space-y-0.5">
@@ -347,7 +360,7 @@ export function ChangesTree({
                   onFileClick={onFileClick}
                   onAction={(path) => onUnstage([path])}
                   actionIcon={Minus}
-                  actionTitle="取消暂存"
+                  actionTitle={t('Unstage')}
                 />
               ))}
             </div>
@@ -359,14 +372,14 @@ export function ChangesTree({
           <div className="space-y-1">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-xs font-medium text-muted-foreground">
-                更改 ({trackedChanges.length})
+                {t('Changes ({{count}})', { count: trackedChanges.length })}
               </h3>
               <button
                 type="button"
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={handleStageTracked}
               >
-                全部暂存
+                {t('Stage all')}
               </button>
             </div>
             <div className="space-y-0.5">
@@ -380,7 +393,7 @@ export function ChangesTree({
                   onFileClick={onFileClick}
                   onAction={(path) => onStage([path])}
                   actionIcon={Plus}
-                  actionTitle="暂存"
+                  actionTitle={t('Stage')}
                   onDiscard={onDiscard}
                 />
               ))}
@@ -393,14 +406,14 @@ export function ChangesTree({
           <div className="space-y-1">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-xs font-medium text-muted-foreground">
-                未跟踪的更改 ({untrackedChanges.length})
+                {t('Untracked changes ({{count}})', { count: untrackedChanges.length })}
               </h3>
               <button
                 type="button"
                 className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 onClick={handleStageUntracked}
               >
-                全部暂存
+                {t('Stage all')}
               </button>
             </div>
             <div className="space-y-0.5">
@@ -414,18 +427,11 @@ export function ChangesTree({
                   onFileClick={onFileClick}
                   onAction={(path) => onStage([path])}
                   actionIcon={Plus}
-                  actionTitle="暂存"
+                  actionTitle={t('Stage')}
                   onDiscard={onDeleteUntracked}
                 />
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {staged.length === 0 && trackedChanges.length === 0 && untrackedChanges.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-            <p className="text-sm">没有更改</p>
           </div>
         )}
       </div>

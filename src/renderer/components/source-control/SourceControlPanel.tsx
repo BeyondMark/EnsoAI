@@ -217,7 +217,7 @@ export function SourceControlPanel({
     }
 
     setConfirmAction(null);
-  }, [rootPath, confirmAction, discardMutation, selectedFile, setSelectedFile, stageMutation]);
+  }, [rootPath, confirmAction, discardMutation, selectedFile, setSelectedFile, stageMutation, t]);
 
   // File navigation
   const currentFileIndex = selectedFile
@@ -262,7 +262,7 @@ export function SourceControlPanel({
         });
       }
     },
-    [rootPath, staged.length, commitMutation, setSelectedFile]
+    [rootPath, staged.length, commitMutation, setSelectedFile, t]
   );
 
   if (!rootPath) {
@@ -309,12 +309,12 @@ export function SourceControlPanel({
             <button
               type="button"
               onClick={() => setChangesExpanded(!changesExpanded)}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-accent transition-colors shrink-0"
+              className="flex w-full items-center gap-2 px-4 py-2 text-left rounded-sm hover:bg-accent/50 transition-colors shrink-0 focus:outline-none"
             >
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 text-muted-foreground transition-transform',
-                  !changesExpanded && 'rotate-180'
+                  'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                  !changesExpanded && '-rotate-90'
                 )}
               />
               <GitBranch className="h-4 w-4" />
@@ -350,12 +350,12 @@ export function SourceControlPanel({
             <button
               type="button"
               onClick={() => setHistoryExpanded(!historyExpanded)}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left hover:bg-accent transition-colors shrink-0"
+              className="flex w-full items-center gap-2 px-4 py-2 text-left rounded-sm hover:bg-accent/50 transition-colors shrink-0 focus:outline-none"
             >
               <ChevronDown
                 className={cn(
-                  'h-4 w-4 text-muted-foreground transition-transform',
-                  !historyExpanded && 'rotate-180'
+                  'h-4 w-4 text-muted-foreground transition-transform duration-200',
+                  !historyExpanded && '-rotate-90'
                 )}
               />
               <History className="h-4 w-4" />
@@ -363,7 +363,7 @@ export function SourceControlPanel({
             </button>
 
             {historyExpanded && (
-              <div className="flex-1 overflow-auto min-h-0">
+              <div className="h-full flex-1 overflow-hidden min-h-0">
                 <CommitHistoryList
                   commits={commits}
                   selectedHash={selectedCommitHash}
@@ -401,7 +401,7 @@ export function SourceControlPanel({
           {selectedCommitHash ? (
             <>
               {/* Commit File List */}
-              <div className="shrink-0 border-r" style={{ width: panelWidth }}>
+              <div className="h-full shrink-0 border-r" style={{ width: panelWidth }}>
                 <CommitFileList
                   files={commitFiles}
                   selectedFile={selectedCommitFile}
@@ -444,15 +444,23 @@ export function SourceControlPanel({
               {confirmAction?.type === 'discard' ? t('Discard changes') : t('Delete file')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction?.type === 'discard' ? (
-                tNode('Are you sure you want to discard changes to {{path}}? This cannot be undone.', {
-                  path: <span className="font-medium text-foreground">{confirmAction.path}</span>,
-                })
-              ) : (
-                tNode('Are you sure you want to delete the untracked file {{path}}? This cannot be undone.', {
-                  path: <span className="font-medium text-foreground">{confirmAction?.path}</span>,
-                })
-              )}
+              {confirmAction?.type === 'discard'
+                ? tNode(
+                    'Are you sure you want to discard changes to {{path}}? This cannot be undone.',
+                    {
+                      path: (
+                        <span className="font-medium text-foreground">{confirmAction.path}</span>
+                      ),
+                    }
+                  )
+                : tNode(
+                    'Are you sure you want to delete the untracked file {{path}}? This cannot be undone.',
+                    {
+                      path: (
+                        <span className="font-medium text-foreground">{confirmAction?.path}</span>
+                      ),
+                    }
+                  )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

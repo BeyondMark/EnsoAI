@@ -2,6 +2,7 @@ import type { FileDiff } from '@shared/types';
 import { Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { DiffViewer } from '@/components/source-control/DiffViewer';
+import { useI18n } from '@/i18n';
 
 interface CommitDiffViewerProps {
   rootPath: string;
@@ -16,6 +17,8 @@ export function CommitDiffViewer({
   filePath,
   isLoading = false,
 }: CommitDiffViewerProps) {
+  const { t } = useI18n();
+
   // Memoize diff data to prevent unnecessary remounts
   const diffData = useMemo(
     () => ({
@@ -33,7 +36,7 @@ export function CommitDiffViewer({
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         ) : (
-          <p className="text-sm text-muted-foreground">选择一个文件以查看更改</p>
+          <p className="text-sm text-muted-foreground">{t('Select a file to view changes')}</p>
         )}
       </div>
     );

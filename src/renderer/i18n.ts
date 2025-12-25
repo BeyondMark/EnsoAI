@@ -1,7 +1,8 @@
+import { getTranslation, type Locale, normalizeLocale, translate } from '@shared/i18n';
 import * as React from 'react';
-import { getTranslation, normalizeLocale, translate, type Locale } from '@shared/i18n';
 import { useSettingsStore } from '@/stores/settings';
 
+export type TFunction = (key: string, params?: Record<string, string | number>) => string;
 type RichParams = Record<string, React.ReactNode>;
 
 function translateNodes(locale: Locale, key: string, params?: RichParams) {
@@ -11,9 +12,9 @@ function translateNodes(locale: Locale, key: string, params?: RichParams) {
   const parts: React.ReactNode[] = [];
   const regex = /\{\{(\w+)\}\}/g;
   let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  let match: RegExpExecArray | null = regex.exec(template);
 
-  while ((match = regex.exec(template))) {
+  while (match) {
     const [placeholder, token] = match;
     const index = match.index;
     if (index > lastIndex) {
@@ -21,6 +22,7 @@ function translateNodes(locale: Locale, key: string, params?: RichParams) {
     }
     parts.push(params[token] ?? placeholder);
     lastIndex = index + placeholder.length;
+    match = regex.exec(template);
   }
 
   if (lastIndex < template.length) {
@@ -35,8 +37,7 @@ export function useI18n() {
   const locale = normalizeLocale(language);
 
   const t = React.useCallback(
-    (key: string, params?: Record<string, string | number>) =>
-      translate(locale, key, params),
+    (key: string, params?: Record<string, string | number>) => translate(locale, key, params),
     [locale]
   );
 

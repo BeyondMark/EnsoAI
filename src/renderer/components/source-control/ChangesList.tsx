@@ -10,6 +10,7 @@ import {
   RotateCcw,
   TreeDeciduous,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -137,11 +138,6 @@ export function ChangesList({
   const trackedChanges = unstaged.filter((f) => f.status !== 'U');
   const untrackedChanges = unstaged.filter((f) => f.status === 'U');
 
-  const handleStageAll = () => {
-    const paths = unstaged.map((f) => f.path);
-    if (paths.length > 0) onStage(paths);
-  };
-
   const handleUnstageAll = () => {
     const paths = staged.map((f) => f.path);
     if (paths.length > 0) onUnstage(paths);
@@ -163,15 +159,15 @@ export function ChangesList({
       <div className="flex h-full flex-col">
         {/* View Mode Toggle */}
         <div className="flex h-9 shrink-0 items-center justify-end border-b px-3">
-          <button
-            type="button"
-            className="flex h-7 items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          <Button
+            variant="outline"
+            size="xs"
             onClick={() => setViewMode('list')}
             title={t('Switch to list view')}
           >
-            <List className="h-3.5 w-3.5" />
-            <span>{t('List view')}</span>
-          </button>
+            <List />
+            {t('List view')}
+          </Button>
         </div>
         {/* Tree View */}
         <div className="flex-1 overflow-hidden">
@@ -191,135 +187,143 @@ export function ChangesList({
     );
   }
 
+  const isEmpty =
+    staged.length === 0 && trackedChanges.length === 0 && untrackedChanges.length === 0;
+
   return (
     <div className="flex h-full flex-col">
       {/* View Mode Toggle */}
       <div className="flex h-9 shrink-0 items-center justify-end border-b px-3">
-        <button
-          type="button"
-          className="flex h-7 items-center gap-1.5 rounded-md border bg-background px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        <Button
+          variant="outline"
+          size="xs"
           onClick={() => setViewMode(viewMode === 'list' ? 'tree' : 'list')}
           title={viewMode === 'list' ? t('Switch to tree view') : t('Switch to list view')}
         >
           {viewMode === 'list' ? (
             <>
-              <TreeDeciduous className="h-3.5 w-3.5" />
-              <span>{t('Tree view')}</span>
+              <TreeDeciduous />
+              {t('Tree view')}
             </>
           ) : (
             <>
-              <List className="h-3.5 w-3.5" />
-              <span>{t('List view')}</span>
+              <List />
+              {t('List view')}
             </>
           )}
-        </button>
+        </Button>
       </div>
-      {/* List View */}
-      <ScrollArea className="flex-1">
-        <div className="space-y-4 p-3">
-          {/* Staged Changes */}
-          {staged.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-xs font-medium text-muted-foreground">
-                  {t('Staged changes ({count})', { count: staged.length })}
-                </h3>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={handleUnstageAll}
-                >
-                  {t('Unstage all')}
-                </button>
-              </div>
-              <div className="space-y-0.5">
-                {staged.map((file) => (
-                  <FileItem
-                    key={`staged-${file.path}`}
-                    file={file}
-                    isSelected={selectedFile?.path === file.path && selectedFile?.staged === true}
-                    onFileClick={() => onFileClick({ path: file.path, staged: true })}
-                    onAction={() => onUnstage([file.path])}
-                    actionIcon={Minus}
-                    actionTitle={t('Unstage')}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Tracked Changes */}
-          {trackedChanges.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-xs font-medium text-muted-foreground">
-                  {t('Changes ({count})', { count: trackedChanges.length })}
-                </h3>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={handleStageTracked}
-                >
-                  {t('Stage all')}
-                </button>
-              </div>
-              <div className="space-y-0.5">
-                {trackedChanges.map((file) => (
-                  <FileItem
-                    key={`unstaged-${file.path}`}
-                    file={file}
-                    isSelected={selectedFile?.path === file.path && selectedFile?.staged === false}
-                    onFileClick={() => onFileClick({ path: file.path, staged: false })}
-                    onAction={() => onStage([file.path])}
-                    actionIcon={Plus}
-                    actionTitle={t('Stage')}
-                    onDiscard={() => onDiscard(file.path)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Untracked Changes */}
-          {untrackedChanges.length > 0 && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-2">
-                <h3 className="text-xs font-medium text-muted-foreground">
-                  {t('Untracked changes ({count})', { count: untrackedChanges.length })}
-                </h3>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={handleStageUntracked}
-                >
-                  {t('Stage all')}
-                </button>
-              </div>
-              <div className="space-y-0.5">
-                {untrackedChanges.map((file) => (
-                  <FileItem
-                    key={`untracked-${file.path}`}
-                    file={file}
-                    isSelected={selectedFile?.path === file.path && selectedFile?.staged === false}
-                    onFileClick={() => onFileClick({ path: file.path, staged: false })}
-                    onAction={() => onStage([file.path])}
-                    actionIcon={Plus}
-                    actionTitle={t('Stage')}
-                    onDiscard={onDeleteUntracked ? () => onDeleteUntracked(file.path) : undefined}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {staged.length === 0 && trackedChanges.length === 0 && untrackedChanges.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-              <p className="text-sm">{t('No changes')}</p>
-            </div>
-          )}
+      {/* Empty State */}
+      {isEmpty ? (
+        <div className="flex flex-1 min-h-[120px] flex-col items-center justify-center text-center text-muted-foreground">
+          <p className="text-sm">{t('No changes')}</p>
         </div>
-      </ScrollArea>
+      ) : (
+        /* List View */
+        <ScrollArea className="flex-1">
+          <div className="space-y-4 p-3">
+            {/* Staged Changes */}
+            {staged.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">
+                    {t('Staged changes ({{count}})', { count: staged.length })}
+                  </h3>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={handleUnstageAll}
+                  >
+                    {t('Unstage all')}
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  {staged.map((file) => (
+                    <FileItem
+                      key={`staged-${file.path}`}
+                      file={file}
+                      isSelected={selectedFile?.path === file.path && selectedFile?.staged === true}
+                      onFileClick={() => onFileClick({ path: file.path, staged: true })}
+                      onAction={() => onUnstage([file.path])}
+                      actionIcon={Minus}
+                      actionTitle={t('Unstage')}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tracked Changes */}
+            {trackedChanges.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">
+                    {t('Changes ({{count}})', { count: trackedChanges.length })}
+                  </h3>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={handleStageTracked}
+                  >
+                    {t('Stage all')}
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  {trackedChanges.map((file) => (
+                    <FileItem
+                      key={`unstaged-${file.path}`}
+                      file={file}
+                      isSelected={
+                        selectedFile?.path === file.path && selectedFile?.staged === false
+                      }
+                      onFileClick={() => onFileClick({ path: file.path, staged: false })}
+                      onAction={() => onStage([file.path])}
+                      actionIcon={Plus}
+                      actionTitle={t('Stage')}
+                      onDiscard={() => onDiscard(file.path)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Untracked Changes */}
+            {untrackedChanges.length > 0 && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between px-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">
+                    {t('Untracked changes ({{count}})', { count: untrackedChanges.length })}
+                  </h3>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={handleStageUntracked}
+                  >
+                    {t('Stage all')}
+                  </button>
+                </div>
+                <div className="space-y-0.5">
+                  {untrackedChanges.map((file) => (
+                    <FileItem
+                      key={`untracked-${file.path}`}
+                      file={file}
+                      isSelected={
+                        selectedFile?.path === file.path && selectedFile?.staged === false
+                      }
+                      onFileClick={() => onFileClick({ path: file.path, staged: false })}
+                      onAction={() => onStage([file.path])}
+                      actionIcon={Plus}
+                      actionTitle={t('Stage')}
+                      onDiscard={onDeleteUntracked ? () => onDeleteUntracked(file.path) : undefined}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }

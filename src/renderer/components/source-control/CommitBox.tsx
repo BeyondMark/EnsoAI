@@ -1,6 +1,7 @@
 import { GitCommit, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 interface CommitBoxProps {
@@ -10,6 +11,7 @@ interface CommitBoxProps {
 }
 
 export function CommitBox({ stagedCount, onCommit, isCommitting = false }: CommitBoxProps) {
+  const { t } = useI18n();
   const [message, setMessage] = useState('');
 
   const handleCommit = () => {
@@ -40,7 +42,9 @@ export function CommitBox({ stagedCount, onCommit, isCommitting = false }: Commi
           'min-h-[80px] max-h-[200px]'
         )}
         placeholder={
-          stagedCount > 0 ? '输入提交信息... (Cmd/Ctrl+Enter 提交)' : '暂存更改后才能提交'
+          stagedCount > 0
+            ? t('Enter commit message... (Cmd/Ctrl+Enter to commit)')
+            : t('Stage changes before committing')
         }
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -52,7 +56,9 @@ export function CommitBox({ stagedCount, onCommit, isCommitting = false }: Commi
       <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
         {/* Staged count */}
         <span className="text-xs text-muted-foreground">
-          {stagedCount > 0 ? `${stagedCount} 个已暂存的更改` : '没有暂存的更改'}
+          {stagedCount > 0
+            ? t('{count} staged changes', { count: stagedCount })
+            : t('No staged changes')}
         </span>
 
         {/* Commit button */}
@@ -65,12 +71,12 @@ export function CommitBox({ stagedCount, onCommit, isCommitting = false }: Commi
           {isCommitting ? (
             <>
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              提交中...
+              {t('Committing...')}
             </>
           ) : (
             <>
               <GitCommit className="h-3.5 w-3.5" />
-              提交
+              {t('Commit')}
             </>
           )}
         </Button>

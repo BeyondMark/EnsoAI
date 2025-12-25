@@ -2,6 +2,7 @@ import type { GitLogEntry } from '@shared/types';
 import { GitCommit, Loader2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 interface CommitHistoryListProps {
@@ -23,6 +24,7 @@ export function CommitHistoryList({
   hasNextPage = false,
   onLoadMore,
 }: CommitHistoryListProps) {
+  const { t, locale } = useI18n();
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const formatDate = (dateString: string) => {
@@ -32,10 +34,10 @@ export function CommitHistoryList({
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffHours < 1) return '刚刚';
-    if (diffHours < 24) return `${diffHours} 小时前`;
-    if (diffDays < 7) return `${diffDays} 天前`;
-    return date.toLocaleDateString('zh-CN');
+    if (diffHours < 1) return t('Just now');
+    if (diffHours < 24) return t('{{count}} hours ago', { count: diffHours });
+    if (diffDays < 7) return t('{{count}} days ago', { count: diffDays });
+    return date.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US');
   };
 
   // Set up intersection observer for infinite scroll
@@ -71,9 +73,9 @@ export function CommitHistoryList({
 
   if (commits.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+      <div className="flex h-full min-h-[120px] flex-col items-center justify-center text-muted-foreground">
         <GitCommit className="mb-2 h-10 w-10 opacity-50" />
-        <p className="text-sm">暂无提交记录</p>
+        <p className="text-sm">{t('No commits yet')}</p>
       </div>
     );
   }
@@ -88,23 +90,20 @@ export function CommitHistoryList({
               type="button"
               key={commit.hash}
               className={cn(
-                'group flex w-full items-start gap-2 rounded-md px-3 py-2 text-left transition-colors',
-                'hover:bg-accent',
-                isSelected && 'bg-accent'
+                'group flex w-full items-start gap-2 rounded-sm px-3 py-2 text-left transition-colors',
+                isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
               )}
               onClick={() => onCommitClick(commit.hash)}
             >
               {/* Message & Metadata */}
               <div className="min-w-0 flex-1">
-                <p
+                <p className="truncate text-sm">{commit.message}</p>
+                <div
                   className={cn(
-                    'truncate text-sm',
-                    isSelected ? 'text-foreground' : 'text-foreground/80'
+                    'mt-0.5 flex items-center gap-2 text-xs',
+                    isSelected ? 'text-accent-foreground/70' : 'text-muted-foreground'
                   )}
                 >
-                  {commit.message}
-                </p>
-                <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="truncate">{commit.author_name}</span>
                   <span>·</span>
                   <span>{formatDate(commit.date)}</span>
