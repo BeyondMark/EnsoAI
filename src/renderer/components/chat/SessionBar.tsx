@@ -13,6 +13,7 @@ export interface Session {
   agentId: string; // which agent CLI to use (e.g., 'claude', 'codex', 'gemini', 'codex-wsl')
   agentCommand: string; // the CLI command to run (e.g., 'claude', 'codex')
   initialized: boolean; // true after first run, use --resume to restore
+  activated?: boolean; // true after user presses Enter, only activated sessions are persisted
   cwd: string; // worktree path this session belongs to
   environment?: 'native' | 'wsl'; // execution environment (default: native)
 }

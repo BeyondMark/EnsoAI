@@ -11,8 +11,10 @@ interface AgentTerminalProps {
   agentCommand?: string;
   environment?: 'native' | 'wsl';
   initialized?: boolean;
+  activated?: boolean;
   isActive?: boolean;
   onInitialized?: () => void;
+  onActivated?: () => void;
   onExit?: () => void;
 }
 
@@ -24,13 +26,16 @@ export function AgentTerminal({
   agentCommand = 'claude',
   environment = 'native',
   initialized,
+  activated,
   isActive = false,
   onInitialized,
+  onActivated,
   onExit,
 }: AgentTerminalProps) {
   const outputBufferRef = useRef('');
   const startTimeRef = useRef<number | null>(null);
   const hasInitializedRef = useRef(false);
+  const hasActivatedRef = useRef(false);
 
   // Build command with session args
   const command = useMemo(() => {
@@ -107,15 +112,29 @@ export function AgentTerminal({
   );
 
   // Handle Shift+Enter for newline (Ctrl+J / LF for all agents)
-  const handleCustomKey = useCallback((event: KeyboardEvent, ptyId: string) => {
-    if (event.key === 'Enter' && event.shiftKey) {
-      if (event.type === 'keydown') {
-        window.electronAPI.terminal.write(ptyId, '\x0a');
+  // Also detect Enter key press to mark session as activated
+  const handleCustomKey = useCallback(
+    (event: KeyboardEvent, ptyId: string) => {
+      // Detect Enter key press (without modifiers) to activate session
+      if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey) {
+        if (event.type === 'keydown' && !hasActivatedRef.current && !activated) {
+          hasActivatedRef.current = true;
+          onActivated?.();
+        }
+        return true; // Let Enter through normally
       }
-      return false;
-    }
-    return true;
-  }, []);
+
+      // Handle Shift+Enter for newline
+      if (event.key === 'Enter' && event.shiftKey) {
+        if (event.type === 'keydown') {
+          window.electronAPI.terminal.write(ptyId, '\x0a');
+        }
+        return false;
+      }
+      return true;
+    },
+    [activated, onActivated]
+  );
 
   const {
     containerRef,

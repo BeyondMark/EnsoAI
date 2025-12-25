@@ -90,8 +90,12 @@ function saveSessions(
   sessions: Session[],
   activeIds: Record<string, string | null>
 ): void {
-  // Only persist sessions for agents that support resumption
-  const persistableSessions = sessions.filter((s) => RESUMABLE_AGENTS.has(s.agentCommand));
+  // Only persist sessions that are:
+  // 1. Using agents that support resumption (e.g., claude)
+  // 2. Activated (user has pressed Enter at least once)
+  const persistableSessions = sessions.filter(
+    (s) => RESUMABLE_AGENTS.has(s.agentCommand) && s.activated
+  );
   const persistableIds = new Set(persistableSessions.map((s) => s.id));
   // Only keep activeIds that reference persistable sessions
   const persistableActiveIds: Record<string, string | null> = {};
@@ -232,6 +236,13 @@ export function AgentPanel({ repoPath, cwd, isActive = false }: AgentPanelProps)
     }));
   }, []);
 
+  const handleActivated = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      sessions: prev.sessions.map((s) => (s.id === id ? { ...s, activated: true } : s)),
+    }));
+  }, []);
+
   const handleRenameSession = useCallback((id: string, name: string) => {
     setState((prev) => ({
       ...prev,
@@ -365,8 +376,10 @@ export function AgentPanel({ repoPath, cwd, isActive = false }: AgentPanelProps)
               agentCommand={session.agentCommand || 'claude'}
               environment={session.environment || 'native'}
               initialized={session.initialized}
+              activated={session.activated}
               isActive={isSessionActive}
               onInitialized={() => handleInitialized(session.id)}
+              onActivated={() => handleActivated(session.id)}
               onExit={() => handleCloseSession(session.id)}
             />
           </div>
