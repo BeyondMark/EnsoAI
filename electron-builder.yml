@@ -91,6 +91,7 @@ linux:
       arch: [x64]
     - target: deb
       arch: [x64]
+  maintainer: EnsoAI Team <crolin-zhang@users.noreply.github.com>
   category: Development
   icon: build/icons
 

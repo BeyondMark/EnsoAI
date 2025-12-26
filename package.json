@@ -3,7 +3,10 @@
   "version": "0.1.10",
   "description": "EnsoAI - Git Worktree Manager with AI Agent",
   "main": "./out/main/index.js",
-  "author": "EnsoAI Team",
+  "author": {
+    "name": "EnsoAI Team",
+    "email": "crolin-zhang@users.noreply.github.com"
+  },
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.26.1",
