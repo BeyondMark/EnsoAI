@@ -40,6 +40,27 @@ function adjustArgsForShell(shell: string, args: string[]): string[] {
   return args;
 }
 
+/**
+ * Find a login shell with appropriate args for running commands.
+ * Returns shell path and args that will load user environment (nvm, homebrew, etc.)
+ */
+export function findLoginShell(): { shell: string; args: string[] } {
+  if (isWindows) {
+    return { shell: 'cmd.exe', args: ['/c'] };
+  }
+
+  // Prefer user's SHELL, fallback to common shells
+  const userShell = process.env.SHELL;
+  if (userShell && existsSync(userShell)) {
+    const args = adjustArgsForShell(userShell, ['-i', '-l', '-c']);
+    return { shell: userShell, args };
+  }
+
+  const shell = findFallbackShell();
+  const args = adjustArgsForShell(shell, ['-i', '-l', '-c']);
+  return { shell, args };
+}
+
 // GUI apps don't inherit shell PATH, add common paths
 export function getEnhancedPath(): string {
   const home = process.env.HOME || process.env.USERPROFILE || homedir();

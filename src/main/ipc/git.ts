@@ -4,7 +4,7 @@ import path from 'node:path';
 import { type FileChangeStatus, IPC_CHANNELS } from '@shared/types';
 import { ipcMain } from 'electron';
 import { GitService } from '../services/git/GitService';
-import { getEnhancedPath } from '../services/terminal/PtyManager';
+import { findLoginShell, getEnhancedPath } from '../services/terminal/PtyManager';
 
 const gitServices = new Map<string, GitService>();
 
@@ -222,7 +222,7 @@ ${truncatedDiff}`;
       return new Promise((resolve) => {
         const timeoutMs = options.timeout * 1000;
 
-        const args = [
+        const claudeArgs = [
           '-p',
           '--output-format',
           'json',
@@ -233,13 +233,14 @@ ${truncatedDiff}`;
           options.model || 'haiku',
         ];
 
-        const proc = spawn('claude', args, {
+        // Use login shell to load user environment (nvm, homebrew, etc.)
+        // Same approach as AgentTerminal for consistent shell configuration
+        const claudeCommand = `claude ${claudeArgs.join(' ')}`;
+        const { shell, args: shellArgs } = findLoginShell();
+
+        const proc = spawn(shell, [...shellArgs, claudeCommand], {
           cwd: resolved,
-          shell: true,
-          env: {
-            ...process.env,
-            PATH: getEnhancedPath(),
-          },
+          env: { ...process.env, PATH: getEnhancedPath() },
         });
 
         proc.stdin.write(prompt);

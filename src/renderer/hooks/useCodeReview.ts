@@ -150,10 +150,19 @@ export function useCodeReview({ repoPath }: UseCodeReviewOptions): UseCodeReview
 
       const claudeCommand = `claude "${escapedPrompt}" -p --output-format stream-json --no-session-persistence --disallowedTools "Bash(git:*) Edit" --model ${codeReviewSettings.model} --verbose --include-partial-messages`;
 
+      // Use login shell to load user environment (nvm, homebrew, etc.)
+      // Same approach as AgentTerminal for consistent shell configuration
+      // Try zsh first (macOS default), fallback to bash (Linux default), then sh
+      const shells = ['/bin/zsh', '/bin/bash', '/bin/sh'];
+      const shell = isWindows ? 'cmd.exe' : shells[0];
+      // Note: dash (/bin/sh on some Linux) doesn't support -l, but zsh/bash do
+      // PtyManager will handle fallback if zsh doesn't exist
+      const args = isWindows ? ['/c', claudeCommand] : ['-i', '-l', '-c', claudeCommand];
+
       const ptyId = await window.electronAPI.terminal.create({
         cwd: repoPath,
-        shell: isWindows ? 'cmd.exe' : '/bin/sh',
-        args: isWindows ? ['/c', claudeCommand] : ['-c', claudeCommand],
+        shell,
+        args,
       });
 
       ptyIdRef.current = ptyId;
