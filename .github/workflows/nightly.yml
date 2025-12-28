@@ -259,16 +259,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete nightly --yes --cleanup-tag || true
+          BASE_VERSION=$(echo "${{ needs.prepare.outputs.version }}" | cut -d'-' -f1)
+          gh release delete "v${BASE_VERSION}-nightly" --yes --cleanup-tag || true
 
       - name: Create nightly release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | cut -d'-' -f1)
           COMMIT_MSG=$(git log -1 --pretty=format:"%s")
           COMMIT_SHA="${{ github.sha }}"
           SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
+          TAG="v${BASE_VERSION}-nightly"
 
           cat > notes.md << EOF
           ## 🌙 Nightly Build
@@ -297,7 +300,7 @@ jobs:
           > \`\`\`
           EOF
 
-          gh release create nightly \
+          gh release create "$TAG" \
             --title "Nightly Build (${SHORT_SHA})" \
             --notes-file notes.md \
             --prerelease \
