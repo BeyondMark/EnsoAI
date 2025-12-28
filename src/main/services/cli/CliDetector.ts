@@ -102,9 +102,11 @@ class CliDetector {
     }
 
     // Unix: use login shell to load user's full environment
+    // Note: use -lc (login) instead of -ilc (interactive login)
+    // because -i may fail without a tty in Electron environment
     const shell = findUserShell();
     const escapedCommand = command.replace(/"/g, '\\"');
-    const { stdout } = await execAsync(`${shell} -ilc "${escapedCommand}"`, {
+    const { stdout } = await execAsync(`${shell} -lc "${escapedCommand}"`, {
       timeout,
     });
     return stdout;

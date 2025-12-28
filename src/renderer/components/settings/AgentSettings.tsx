@@ -313,7 +313,7 @@ export function AgentSettings() {
           <div className="mt-4 space-y-3">
             {customAgents.map((agent) => {
               const cli = cliStatus[agent.id];
-              const isLoading = loadingAgents.has(agent.id);
+              const isLoading = isRefreshing;
               const isInstalled = cli?.installed ?? false;
               const config = agentSettings[agent.id];
               const canEnable = isInstalled;
