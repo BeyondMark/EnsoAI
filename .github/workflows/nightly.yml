@@ -133,7 +133,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}
-          path: dist/*.dmg
+          path: |
+            dist/*.dmg
+            dist/*.yml
           retention-days: 7
 
       - name: Save pnpm cache
@@ -202,7 +204,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64
-          path: dist/*portable*.exe
+          path: |
+            dist/*portable*.exe
+            dist/*.yml
           retention-days: 7
 
       - name: Save pnpm cache
@@ -270,7 +274,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-x64
-          path: dist/*.AppImage
+          path: |
+            dist/*.AppImage
+            dist/*.yml
           retention-days: 7
 
       - name: Save pnpm cache
@@ -304,7 +310,25 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
+          # 复制安装包
           find artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) -exec cp {} release/ \;
+
+          # 复制 Windows 和 Linux 的 yml 文件
+          cp artifacts/windows-x64/latest.yml release/ 2>/dev/null || true
+          cp artifacts/linux-x64/latest-linux.yml release/ 2>/dev/null || true
+
+          # 合并 macOS 的 yml 文件（两个架构）
+          if [ -f "artifacts/mac-arm64/latest-mac.yml" ] && [ -f "artifacts/mac-x64/latest-mac.yml" ]; then
+            # 使用 arm64 的作为基础，添加 x64 的文件信息
+            cp artifacts/mac-arm64/latest-mac.yml release/latest-mac.yml
+            # 提取 x64 的 files 部分并追加
+            grep -A3 "^  - url:" artifacts/mac-x64/latest-mac.yml >> release/latest-mac.yml
+          elif [ -f "artifacts/mac-arm64/latest-mac.yml" ]; then
+            cp artifacts/mac-arm64/latest-mac.yml release/
+          elif [ -f "artifacts/mac-x64/latest-mac.yml" ]; then
+            cp artifacts/mac-x64/latest-mac.yml release/
+          fi
+
           ls -la release/
 
       - name: Delete existing nightly releases
