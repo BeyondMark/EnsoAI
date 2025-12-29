@@ -119,6 +119,7 @@ export function useXterm({
   const ptyIdRef = useRef<string | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
   const exitCleanupRef = useRef<(() => void) | null>(null);
+  const linkProviderDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
   const onDataRef = useRef(onData);
@@ -258,8 +259,13 @@ export function useXterm({
     // 'dom' uses the default renderer, no addon needed
 
     // Register file path link provider for click-to-open-in-editor
-    terminal.registerLinkProvider({
+    const linkProviderDisposable = terminal.registerLinkProvider({
       provideLinks: (bufferLineNumber, callback) => {
+        // Guard against disposed terminal
+        if (!terminalRef.current) {
+          callback(undefined);
+          return;
+        }
         const line = terminal.buffer.active.getLine(bufferLineNumber - 1);
         if (!line) {
           callback(undefined);
@@ -323,6 +329,7 @@ export function useXterm({
         callback(links.length > 0 ? links : undefined);
       },
     });
+    linkProviderDisposableRef.current = linkProviderDisposable;
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -488,6 +495,9 @@ export function useXterm({
       if (ptyIdRef.current) {
         window.electronAPI.terminal.destroy(ptyIdRef.current);
       }
+      // Dispose link provider before terminal to prevent async callback errors
+      linkProviderDisposableRef.current?.dispose();
+      linkProviderDisposableRef.current = null;
       terminalRef.current?.dispose();
       terminalRef.current = null;
     };
