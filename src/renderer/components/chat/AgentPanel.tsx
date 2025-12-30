@@ -49,18 +49,11 @@ function createSession(
   agentId: string,
   customAgents: Array<{ id: string; name: string; command: string }>
 ): Session {
-  // Handle WSL, Hapi and Happy agent IDs
-  // e.g., 'codex-wsl' -> base is 'codex', 'claude-hapi' -> base is 'claude', 'claude-happy' -> base is 'claude'
-  const isWsl = agentId.endsWith('-wsl');
+  // Handle Hapi and Happy agent IDs
+  // e.g., 'claude-hapi' -> base is 'claude', 'claude-happy' -> base is 'claude'
   const isHapi = agentId.endsWith('-hapi');
   const isHappy = agentId.endsWith('-happy');
-  const baseId = isWsl
-    ? agentId.slice(0, -4)
-    : isHapi
-      ? agentId.slice(0, -5)
-      : isHappy
-        ? agentId.slice(0, -6)
-        : agentId;
+  const baseId = isHapi ? agentId.slice(0, -5) : isHappy ? agentId.slice(0, -6) : agentId;
 
   // Check if it's a custom agent
   const customAgent = customAgents.find((a) => a.id === baseId);
@@ -69,16 +62,10 @@ function createSession(
     : AGENT_INFO[baseId] || { name: 'Claude', command: 'claude' };
 
   // Build display name with environment suffix
-  const displayName = isWsl
-    ? `${info.name} (WSL)`
-    : isHapi
-      ? `${info.name} (Hapi)`
-      : isHappy
-        ? `${info.name} (Happy)`
-        : info.name;
+  const displayName = isHapi ? `${info.name} (Hapi)` : isHappy ? `${info.name} (Happy)` : info.name;
 
   // Determine environment
-  const environment = isWsl ? 'wsl' : isHapi ? 'hapi' : isHappy ? 'happy' : 'native';
+  const environment = isHapi ? 'hapi' : isHappy ? 'happy' : 'native';
 
   return {
     id: crypto.randomUUID(),
@@ -351,31 +338,18 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
 
   const handleNewSessionWithAgent = useCallback(
     (agentId: string, agentCommand: string) => {
-      // Handle WSL, Hapi and Happy agent IDs
-      const isWsl = agentId.endsWith('-wsl');
+      // Handle Hapi and Happy agent IDs
       const isHapi = agentId.endsWith('-hapi');
       const isHappy = agentId.endsWith('-happy');
-      const baseId = isWsl
-        ? agentId.slice(0, -4)
-        : isHapi
-          ? agentId.slice(0, -5)
-          : isHappy
-            ? agentId.slice(0, -6)
-            : agentId;
+      const baseId = isHapi ? agentId.slice(0, -5) : isHappy ? agentId.slice(0, -6) : agentId;
 
       // Get agent name for display
       const customAgent = customAgents.find((a) => a.id === baseId);
       const baseName = customAgent?.name ?? AGENT_INFO[baseId]?.name ?? 'Agent';
-      const name = isWsl
-        ? `${baseName} (WSL)`
-        : isHapi
-          ? `${baseName} (Hapi)`
-          : isHappy
-            ? `${baseName} (Happy)`
-            : baseName;
+      const name = isHapi ? `${baseName} (Hapi)` : isHappy ? `${baseName} (Happy)` : baseName;
 
       // Determine environment
-      const environment = isWsl ? 'wsl' : isHapi ? 'hapi' : isHappy ? 'happy' : 'native';
+      const environment = isHapi ? 'hapi' : isHappy ? 'happy' : 'native';
 
       const newSession: Session = {
         id: crypto.randomUUID(),

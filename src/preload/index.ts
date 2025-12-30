@@ -295,17 +295,8 @@ const electronAPI = {
 
   // CLI Detector
   cli: {
-    detect: (
-      customAgents?: CustomAgent[],
-      options?: { includeWsl?: boolean; forceRefresh?: boolean }
-    ): Promise<AgentCliStatus> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT, customAgents, options),
-    detectOne: (
-      agentId: string,
-      customAgent?: CustomAgent,
-      options?: { includeWsl?: boolean }
-    ): Promise<AgentCliInfo> =>
-      ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT_ONE, agentId, customAgent, options),
+    detectOne: (agentId: string, customAgent?: CustomAgent): Promise<AgentCliInfo> =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLI_DETECT_ONE, agentId, customAgent),
     // CLI Installer
     getInstallStatus: (): Promise<{ installed: boolean; path: string | null; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLI_INSTALL_STATUS),

@@ -97,6 +97,15 @@ export interface AgentConfig {
 
 export type AgentSettings = Record<string, AgentConfig>;
 
+// Agent detection status (persisted)
+export interface AgentDetectionInfo {
+  installed: boolean;
+  version?: string;
+  detectedAt: number; // timestamp
+}
+
+export type AgentDetectionStatus = Record<string, AgentDetectionInfo>;
+
 export const BUILTIN_AGENT_IDS: BuiltinAgentId[] = [
   'claude',
   'codex',
@@ -371,9 +380,9 @@ interface SettingsState {
   searchKeybindings: SearchKeybindings;
   editorSettings: EditorSettings;
   agentSettings: AgentSettings;
+  agentDetectionStatus: AgentDetectionStatus;
   customAgents: CustomAgent[];
   shellConfig: ShellConfig;
-  wslEnabled: boolean;
   agentNotificationEnabled: boolean;
   agentNotificationDelay: number; // in seconds
   agentNotificationEnterDelay: number; // delay after Enter before starting idle timer
@@ -404,11 +413,12 @@ interface SettingsState {
   setEditorSettings: (settings: Partial<EditorSettings>) => void;
   setAgentEnabled: (agentId: string, enabled: boolean) => void;
   setAgentDefault: (agentId: string) => void;
+  setAgentDetectionStatus: (agentId: string, info: AgentDetectionInfo) => void;
+  clearAgentDetectionStatus: (agentId: string) => void;
   addCustomAgent: (agent: CustomAgent) => void;
   updateCustomAgent: (id: string, updates: Partial<CustomAgent>) => void;
   removeCustomAgent: (id: string) => void;
   setShellConfig: (config: ShellConfig) => void;
-  setWslEnabled: (enabled: boolean) => void;
   setAgentNotificationEnabled: (enabled: boolean) => void;
   setAgentNotificationDelay: (delay: number) => void;
   setAgentNotificationEnterDelay: (delay: number) => void;
@@ -423,12 +433,15 @@ interface SettingsState {
 
 const defaultAgentSettings: AgentSettings = {
   claude: { enabled: true, isDefault: true },
-  codex: { enabled: true, isDefault: false },
-  droid: { enabled: true, isDefault: false },
-  gemini: { enabled: true, isDefault: false },
-  auggie: { enabled: true, isDefault: false },
-  cursor: { enabled: true, isDefault: false },
+  codex: { enabled: false, isDefault: false },
+  droid: { enabled: false, isDefault: false },
+  gemini: { enabled: false, isDefault: false },
+  auggie: { enabled: false, isDefault: false },
+  cursor: { enabled: false, isDefault: false },
 };
+
+// No default detection status - all agents need to be detected
+const defaultAgentDetectionStatus: AgentDetectionStatus = {};
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
@@ -451,11 +464,11 @@ export const useSettingsStore = create<SettingsState>()(
       searchKeybindings: defaultSearchKeybindings,
       editorSettings: defaultEditorSettings,
       agentSettings: defaultAgentSettings,
+      agentDetectionStatus: defaultAgentDetectionStatus,
       customAgents: [],
       shellConfig: {
         shellType: window.electronAPI?.env.platform === 'win32' ? 'powershell7' : 'system',
       },
-      wslEnabled: false,
       agentNotificationEnabled: true,
       agentNotificationDelay: 3, // 3 seconds
       agentNotificationEnterDelay: 0, // 0 = disabled, start timer immediately
@@ -529,6 +542,21 @@ export const useSettingsStore = create<SettingsState>()(
         }
         set({ agentSettings: updated });
       },
+      setAgentDetectionStatus: (agentId, info) => {
+        const current = get().agentDetectionStatus;
+        set({
+          agentDetectionStatus: {
+            ...current,
+            [agentId]: info,
+          },
+        });
+      },
+      clearAgentDetectionStatus: (agentId) => {
+        const current = get().agentDetectionStatus;
+        const updated = { ...current };
+        delete updated[agentId];
+        set({ agentDetectionStatus: updated });
+      },
       addCustomAgent: (agent) => {
         const { customAgents, agentSettings } = get();
         set({
@@ -564,7 +592,6 @@ export const useSettingsStore = create<SettingsState>()(
         });
       },
       setShellConfig: (shellConfig) => set({ shellConfig }),
-      setWslEnabled: (wslEnabled) => set({ wslEnabled }),
       setAgentNotificationEnabled: (agentNotificationEnabled) => set({ agentNotificationEnabled }),
       setAgentNotificationDelay: (agentNotificationDelay) => set({ agentNotificationDelay }),
       setAgentNotificationEnterDelay: (agentNotificationEnterDelay) =>
@@ -650,6 +677,17 @@ export const useSettingsStore = create<SettingsState>()(
             ...currentState.hapiSettings,
             ...persisted.hapiSettings,
           },
+          // Only keep detection status for enabled agents
+          agentDetectionStatus: Object.fromEntries(
+            Object.entries({
+              ...currentState.agentDetectionStatus,
+              ...persisted.agentDetectionStatus,
+            }).filter(([agentId]) => {
+              const agentConfig =
+                persisted.agentSettings?.[agentId] ?? currentState.agentSettings[agentId];
+              return agentConfig?.enabled;
+            })
+          ),
         };
       },
       onRehydrateStorage: () => (state) => {

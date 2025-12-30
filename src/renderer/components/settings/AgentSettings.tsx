@@ -1,5 +1,6 @@
-import type { AgentCliInfo, BuiltinAgentId, CustomAgent } from '@shared/types';
-import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import type { BuiltinAgentId, CustomAgent } from '@shared/types';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Pencil, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogPopup, DialogTitle } from '@/components/ui/dialog';
@@ -9,6 +10,14 @@ import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/settings';
 import { BUILTIN_AGENT_INFO, BUILTIN_AGENTS } from './constants';
+
+const itemVariants = {
+  initial: { opacity: 0, height: 0, marginBottom: 0 },
+  animate: { opacity: 1, height: 'auto', marginBottom: 8 },
+  exit: { opacity: 0, height: 0, marginBottom: 0 },
+};
+
+const itemTransition = { duration: 0.2, ease: 'easeInOut' as const };
 
 type AgentFormProps =
   | {
@@ -98,64 +107,91 @@ function AgentForm({ agent, onSubmit, onCancel }: AgentFormProps) {
 export function AgentSettings() {
   const {
     agentSettings,
+    agentDetectionStatus,
     customAgents,
-    wslEnabled,
     hapiSettings,
     setAgentEnabled,
     setAgentDefault,
+    setAgentDetectionStatus,
+    clearAgentDetectionStatus,
     addCustomAgent,
     updateCustomAgent,
     removeCustomAgent,
   } = useSettingsStore();
   const { t } = useI18n();
-  const [cliStatus, setCliStatus] = React.useState<Record<string, AgentCliInfo>>({});
   const [loadingAgents, setLoadingAgents] = React.useState<Set<string>>(new Set());
   const [editingAgent, setEditingAgent] = React.useState<CustomAgent | null>(null);
   const [isAddingAgent, setIsAddingAgent] = React.useState(false);
 
-  const detectAllAgents = React.useCallback(
-    (forceRefresh = false) => {
-      setLoadingAgents(new Set(['all']));
-      if (forceRefresh) {
-        setCliStatus({});
-      }
-
-      window.electronAPI.cli
-        .detect(customAgents, { includeWsl: wslEnabled, forceRefresh })
-        .then((result) => {
-          const statusMap: Record<string, AgentCliInfo> = {};
-          for (const agent of result.agents) {
-            statusMap[agent.id] = agent;
-          }
-          setCliStatus(statusMap);
-          setLoadingAgents(new Set());
-        })
-        .catch(() => {
-          setLoadingAgents(new Set());
+  // Detect a single agent
+  const detectSingleAgent = React.useCallback(
+    async (agentId: string, customAgent?: CustomAgent) => {
+      setLoadingAgents((prev) => new Set([...prev, agentId]));
+      try {
+        const result = await window.electronAPI.cli.detectOne(agentId, customAgent);
+        setAgentDetectionStatus(agentId, {
+          installed: result.installed,
+          version: result.version,
+          detectedAt: Date.now(),
         });
+      } finally {
+        setLoadingAgents((prev) => {
+          const next = new Set(prev);
+          next.delete(agentId);
+          return next;
+        });
+      }
     },
-    [customAgents, wslEnabled]
+    [setAgentDetectionStatus]
   );
 
-  React.useEffect(() => {
-    detectAllAgents();
-  }, [detectAllAgents]);
+  // Refresh only enabled agents
+  const refreshEnabledAgents = React.useCallback(async () => {
+    const enabledAgentIds = Object.entries(agentSettings)
+      .filter(([, config]) => config.enabled)
+      .map(([id]) => id);
+
+    if (enabledAgentIds.length === 0) return;
+
+    setLoadingAgents(new Set(enabledAgentIds));
+
+    try {
+      await Promise.all(
+        enabledAgentIds.map(async (agentId) => {
+          const customAgent = customAgents.find((a) => a.id === agentId);
+          const result = await window.electronAPI.cli.detectOne(agentId, customAgent);
+          setAgentDetectionStatus(agentId, {
+            installed: result.installed,
+            version: result.version,
+            detectedAt: Date.now(),
+          });
+        })
+      );
+    } finally {
+      setLoadingAgents(new Set());
+    }
+  }, [agentSettings, customAgents, setAgentDetectionStatus]);
 
   const handleEnabledChange = (agentId: string, enabled: boolean) => {
     setAgentEnabled(agentId, enabled);
-    if (!enabled && agentSettings[agentId]?.isDefault) {
-      const allAgentIds = [...BUILTIN_AGENTS, ...customAgents.map((a) => a.id)];
-      const firstEnabled = allAgentIds.find(
-        (id) => id !== agentId && agentSettings[id]?.enabled && cliStatus?.[id]?.installed
-      );
-      if (firstEnabled) {
-        setAgentDefault(firstEnabled);
+    if (!enabled) {
+      // Clear detection status when disabling (no need to persist for disabled agents)
+      clearAgentDetectionStatus(agentId);
+      if (agentSettings[agentId]?.isDefault) {
+        const allAgentIds = [...BUILTIN_AGENTS, ...customAgents.map((a) => a.id)];
+        const firstEnabled = allAgentIds.find(
+          (id) =>
+            id !== agentId && agentSettings[id]?.enabled && agentDetectionStatus[id]?.installed
+        );
+        if (firstEnabled) {
+          setAgentDefault(firstEnabled);
+        }
       }
     }
   };
 
   const handleDefaultChange = (agentId: string) => {
-    if (agentSettings[agentId]?.enabled && cliStatus?.[agentId]?.installed) {
+    if (agentSettings[agentId]?.enabled && agentDetectionStatus[agentId]?.installed) {
       setAgentDefault(agentId);
     }
   };
@@ -174,8 +210,6 @@ export function AgentSettings() {
   const handleRemoveAgent = (id: string) => {
     removeCustomAgent(id);
   };
-
-  const isRefreshing = loadingAgents.size > 0;
 
   // Hapi-supported agent IDs (only these can run through hapi)
   const HAPI_SUPPORTED_AGENTS: BuiltinAgentId[] = ['claude', 'codex', 'gemini'];
@@ -196,108 +230,48 @@ export function AgentSettings() {
     });
   }, []);
 
-  // Get all agents including WSL and Hapi variants
+  // Get all builtin agents
   const allAgentInfos = React.useMemo(() => {
-    const infos: Array<{
-      id: string;
-      baseId: BuiltinAgentId;
-      info: { name: string; description: string };
-      cli?: AgentCliInfo;
-    }> = [];
-
-    for (const agentId of BUILTIN_AGENTS) {
+    return BUILTIN_AGENTS.map((agentId) => {
       const baseInfo = BUILTIN_AGENT_INFO[agentId];
-      const nativeCli = cliStatus[agentId];
-      const wslCli = cliStatus[`${agentId}-wsl`];
-
-      // Add native agent
-      infos.push({ id: agentId, baseId: agentId, info: baseInfo, cli: nativeCli });
-
-      // Add WSL agent if detected
-      if (wslCli?.installed) {
-        infos.push({
-          id: `${agentId}-wsl`,
-          baseId: agentId,
-          info: { name: `${baseInfo.name}`, description: baseInfo.description },
-          cli: wslCli,
-        });
-      }
-    }
-
-    return infos;
-  }, [cliStatus]);
+      const detection = agentDetectionStatus[agentId];
+      return {
+        id: agentId,
+        info: baseInfo,
+        detectionInfo: detection,
+        isDetected: !!detection,
+      };
+    });
+  }, [agentDetectionStatus]);
 
   // Get Hapi agents (virtual agents that use hapi wrapper)
-  // On Windows, CLI might be installed in WSL only, so check both native and WSL
   const hapiAgentInfos = React.useMemo(() => {
     if (!hapiSettings.enabled) return [];
 
-    const infos: Array<{
-      id: string;
-      baseId: BuiltinAgentId;
-      info: { name: string; description: string };
-      cli?: AgentCliInfo;
-    }> = [];
-
-    for (const agentId of HAPI_SUPPORTED_AGENTS) {
-      const baseInfo = BUILTIN_AGENT_INFO[agentId];
-      const nativeCli = cliStatus[agentId];
-      const wslCli = cliStatus[`${agentId}-wsl`];
-
-      // Hapi agent is available if the base CLI is installed in native OR WSL
-      const baseCli = nativeCli?.installed ? nativeCli : wslCli?.installed ? wslCli : null;
-      if (baseCli) {
-        infos.push({
-          id: `${agentId}-hapi`,
-          baseId: agentId,
-          info: { name: `${baseInfo.name}`, description: baseInfo.description },
-          cli: {
-            ...baseCli,
-            id: `${agentId}-hapi`,
-            environment: 'hapi',
-          },
-        });
-      }
-    }
-
-    return infos;
-  }, [cliStatus, hapiSettings.enabled]);
+    return HAPI_SUPPORTED_AGENTS.filter((agentId) => agentDetectionStatus[agentId]?.installed).map(
+      (agentId) => ({
+        id: `${agentId}-hapi`,
+        info: BUILTIN_AGENT_INFO[agentId],
+        detectionInfo: agentDetectionStatus[agentId],
+      })
+    );
+  }, [agentDetectionStatus, hapiSettings.enabled]);
 
   // Get Happy agents (virtual agents that use happy wrapper)
   // Only shown when happy is globally installed AND enabled in settings
   const happyAgentInfos = React.useMemo(() => {
     if (!happyGlobal.installed || !hapiSettings.happyEnabled) return [];
 
-    const infos: Array<{
-      id: string;
-      baseId: BuiltinAgentId;
-      info: { name: string; description: string };
-      cli?: AgentCliInfo;
-    }> = [];
+    return HAPPY_SUPPORTED_AGENTS.filter((agentId) => agentDetectionStatus[agentId]?.installed).map(
+      (agentId) => ({
+        id: `${agentId}-happy`,
+        info: BUILTIN_AGENT_INFO[agentId],
+        detectionInfo: agentDetectionStatus[agentId],
+      })
+    );
+  }, [agentDetectionStatus, happyGlobal.installed, hapiSettings.happyEnabled]);
 
-    for (const agentId of HAPPY_SUPPORTED_AGENTS) {
-      const baseInfo = BUILTIN_AGENT_INFO[agentId];
-      const nativeCli = cliStatus[agentId];
-      const wslCli = cliStatus[`${agentId}-wsl`];
-
-      // Happy agent is available if the base CLI is installed in native OR WSL
-      const baseCli = nativeCli?.installed ? nativeCli : wslCli?.installed ? wslCli : null;
-      if (baseCli) {
-        infos.push({
-          id: `${agentId}-happy`,
-          baseId: agentId,
-          info: { name: `${baseInfo.name}`, description: baseInfo.description },
-          cli: {
-            ...baseCli,
-            id: `${agentId}-happy`,
-            environment: 'happy',
-          },
-        });
-      }
-    }
-
-    return infos;
-  }, [cliStatus, happyGlobal.installed, hapiSettings.happyEnabled]);
+  const isRefreshing = loadingAgents.size > 0;
 
   return (
     <div className="space-y-6">
@@ -312,8 +286,9 @@ export function AgentSettings() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={() => detectAllAgents(true)}
+          onClick={() => refreshEnabledAgents()}
           disabled={isRefreshing}
+          title={t('Refresh enabled agents')}
         >
           <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
         </Button>
@@ -325,78 +300,176 @@ export function AgentSettings() {
         )}
       </p>
 
-      {/* Builtin Agents */}
-      <div className="space-y-2">
-        {allAgentInfos.map(({ id: agentId, info, cli }) => {
-          const isLoading = isRefreshing;
-          const isInstalled = cli?.installed ?? false;
-          const config = agentSettings[agentId];
-          const canEnable = isInstalled;
-          const canSetDefault = isInstalled && config?.enabled;
+      {/* Enabled Agents */}
+      <div>
+        <h4 className="text-sm font-medium mb-2">{t('Enabled')}</h4>
+        <div className="space-y-0">
+          <AnimatePresence initial={false}>
+            {allAgentInfos
+              .filter(({ id }) => agentSettings[id]?.enabled)
+              .map(({ id: agentId, info, detectionInfo, isDetected }) => {
+                const isLoading = loadingAgents.has(agentId);
+                const isInstalled = detectionInfo?.installed ?? false;
+                const config = agentSettings[agentId];
+                const canEnable = isDetected && isInstalled;
+                const canSetDefault = canEnable && config?.enabled;
 
-          return (
-            <div
-              key={agentId}
-              className={cn(
-                'flex items-center justify-between rounded-lg border px-3 py-2',
-                !isLoading && !isInstalled && 'opacity-50'
-              )}
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{info.name}</span>
-                  {!isLoading && cli?.version && (
-                    <span className="text-xs text-muted-foreground">v{cli.version}</span>
-                  )}
-                  {!isLoading && cli?.environment === 'wsl' && (
-                    <span className="whitespace-nowrap rounded bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-600 dark:text-blue-400">
-                      WSL
-                    </span>
-                  )}
-                  {!isLoading && !isInstalled && (
-                    <span
+                return (
+                  <motion.div
+                    key={agentId}
+                    layout
+                    variants={itemVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={itemTransition}
+                    className="overflow-hidden"
+                  >
+                    <div
                       className={cn(
-                        'whitespace-nowrap rounded px-1.5 py-0.5 text-xs',
-                        cli?.timedOut
-                          ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                          : 'bg-destructive/10 text-destructive'
+                        'flex items-center justify-between rounded-lg border px-3 py-2',
+                        isDetected && !isInstalled && 'opacity-50'
                       )}
                     >
-                      {cli?.timedOut ? t('Timed out') : t('Not installed')}
-                    </span>
-                  )}
-                </div>
-              </div>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="font-medium text-sm">{info.name}</span>
+                        {detectionInfo?.version && (
+                          <span className="text-xs text-muted-foreground">
+                            v{detectionInfo.version}
+                          </span>
+                        )}
+                        {isDetected && !isInstalled && (
+                          <span className="whitespace-nowrap rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                            {t('Not installed')}
+                          </span>
+                        )}
+                      </div>
 
-              <div className="flex items-center gap-4 shrink-0">
-                {isLoading ? (
-                  <div className="flex h-5 w-20 items-center justify-center">
-                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">{t('Enable')}</span>
-                      <Switch
-                        checked={config?.enabled && canEnable}
-                        onCheckedChange={(checked) => handleEnabledChange(agentId, checked)}
-                        disabled={!canEnable}
-                      />
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">{t('Enable')}</span>
+                          <Switch
+                            checked={config?.enabled && canEnable}
+                            onCheckedChange={(checked) => handleEnabledChange(agentId, checked)}
+                            disabled={!canEnable}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">{t('Default')}</span>
+                          <Switch
+                            checked={config?.isDefault ?? false}
+                            onCheckedChange={() => handleDefaultChange(agentId)}
+                            disabled={!canSetDefault}
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          onClick={() => detectSingleAgent(agentId)}
+                          disabled={isLoading}
+                          title={t('Detect')}
+                        >
+                          {isLoading ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                          ) : (
+                            <Search className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">{t('Default')}</span>
-                      <Switch
-                        checked={config?.isDefault ?? false}
-                        onCheckedChange={() => handleDefaultChange(agentId)}
-                        disabled={!canSetDefault}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+                  </motion.div>
+                );
+              })}
+          </AnimatePresence>
+          {allAgentInfos.filter(({ id }) => agentSettings[id]?.enabled).length === 0 && (
+            <div className="rounded-lg border border-dashed p-3 text-center">
+              <p className="text-xs text-muted-foreground">{t('No enabled agents')}</p>
             </div>
-          );
-        })}
+          )}
+        </div>
+      </div>
+
+      {/* Disabled Agents */}
+      <div>
+        <h4 className="text-sm font-medium mb-2">{t('Disabled')}</h4>
+        <div className="space-y-0">
+          <AnimatePresence initial={false}>
+            {allAgentInfos
+              .filter(({ id }) => !agentSettings[id]?.enabled)
+              .map(({ id: agentId, info, detectionInfo, isDetected }) => {
+                const isLoading = loadingAgents.has(agentId);
+                const isInstalled = detectionInfo?.installed ?? false;
+                const canEnable = isDetected && isInstalled;
+
+                return (
+                  <motion.div
+                    key={agentId}
+                    layout
+                    variants={itemVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={itemTransition}
+                    className="overflow-hidden"
+                  >
+                    <div
+                      className={cn(
+                        'flex items-center justify-between rounded-lg border px-3 py-2',
+                        isDetected && !isInstalled && 'opacity-50'
+                      )}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="font-medium text-sm">{info.name}</span>
+                        {detectionInfo?.version && (
+                          <span className="text-xs text-muted-foreground">
+                            v{detectionInfo.version}
+                          </span>
+                        )}
+                        {isDetected && !isInstalled && (
+                          <span className="whitespace-nowrap rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                            {t('Not installed')}
+                          </span>
+                        )}
+                        {!isDetected && !isLoading && (
+                          <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                            {t('Not detected')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 shrink-0">
+                        {isDetected && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">{t('Enable')}</span>
+                            <Switch
+                              checked={false}
+                              onCheckedChange={(checked) => handleEnabledChange(agentId, checked)}
+                              disabled={!canEnable}
+                            />
+                          </div>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 shrink-0"
+                          onClick={() => detectSingleAgent(agentId)}
+                          disabled={isLoading}
+                          title={t('Detect')}
+                        >
+                          {isLoading ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                          ) : (
+                            <Search className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Hapi Agents Section - shown when remote sharing is enabled */}
@@ -409,9 +482,9 @@ export function AgentSettings() {
             </p>
           </div>
           <div className="space-y-2">
-            {hapiAgentInfos.map(({ id: agentId, info, cli }) => {
+            {hapiAgentInfos.map(({ id: agentId, info, detectionInfo }) => {
               const config = agentSettings[agentId];
-              const canEnable = cli?.installed ?? false;
+              const canEnable = detectionInfo?.installed ?? false;
               const canSetDefault = canEnable && config?.enabled;
 
               return (
@@ -461,9 +534,9 @@ export function AgentSettings() {
             <p className="text-xs text-muted-foreground">{t('Agents running through Happy')}</p>
           </div>
           <div className="space-y-2">
-            {happyAgentInfos.map(({ id: agentId, info, cli }) => {
+            {happyAgentInfos.map(({ id: agentId, info, detectionInfo }) => {
               const config = agentSettings[agentId];
-              const canEnable = cli?.installed ?? false;
+              const canEnable = detectionInfo?.installed ?? false;
               const canSetDefault = canEnable && config?.enabled;
 
               return (
@@ -521,19 +594,20 @@ export function AgentSettings() {
         {customAgents.length > 0 && (
           <div className="space-y-2">
             {customAgents.map((agent) => {
-              const cli = cliStatus[agent.id];
-              const isLoading = isRefreshing;
-              const isInstalled = cli?.installed ?? false;
+              const detectionInfo = agentDetectionStatus[agent.id];
+              const isLoading = loadingAgents.has(agent.id);
+              const isDetected = !!detectionInfo;
+              const isInstalled = detectionInfo?.installed ?? false;
               const config = agentSettings[agent.id];
-              const canEnable = isInstalled;
-              const canSetDefault = isInstalled && config?.enabled;
+              const canEnable = isDetected && isInstalled;
+              const canSetDefault = canEnable && config?.enabled;
 
               return (
                 <div
                   key={agent.id}
                   className={cn(
                     'rounded-lg border px-3 py-2',
-                    !isLoading && !isInstalled && 'opacity-50'
+                    isDetected && !isInstalled && 'opacity-50'
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -542,26 +616,24 @@ export function AgentSettings() {
                       <code className="rounded bg-muted px-1 py-0.5 text-xs truncate">
                         {agent.command}
                       </code>
-                      {!isLoading && cli?.version && (
-                        <span className="text-xs text-muted-foreground">v{cli.version}</span>
+                      {detectionInfo?.version && (
+                        <span className="text-xs text-muted-foreground">
+                          v{detectionInfo.version}
+                        </span>
                       )}
-                      {!isLoading && !isInstalled && (
-                        <span
-                          className={cn(
-                            'whitespace-nowrap rounded px-1.5 py-0.5 text-xs',
-                            cli?.timedOut
-                              ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                              : 'bg-destructive/10 text-destructive'
-                          )}
-                        >
-                          {cli?.timedOut ? t('Timed out') : t('Not installed')}
+                      {isDetected && !isInstalled && (
+                        <span className="whitespace-nowrap rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                          {t('Not installed')}
+                        </span>
+                      )}
+                      {!isDetected && !isLoading && (
+                        <span className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          {t('Not detected')}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-4 shrink-0">
-                      {isLoading ? (
-                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
-                      ) : (
+                      {isDetected && (
                         <>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs text-muted-foreground">{t('Enable')}</span>
@@ -579,26 +651,40 @@ export function AgentSettings() {
                               disabled={!canSetDefault}
                             />
                           </div>
-                          <div className="flex items-center gap-0.5 ml-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => setEditingAgent(agent)}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                              onClick={() => handleRemoveAgent(agent.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
                         </>
                       )}
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => setEditingAgent(agent)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveAgent(agent.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => detectSingleAgent(agent.id, agent)}
+                          disabled={isLoading}
+                          title={t('Detect')}
+                        >
+                          {isLoading ? (
+                            <div className="h-3 w-3 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                          ) : (
+                            <Search className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

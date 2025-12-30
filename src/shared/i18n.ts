@@ -21,7 +21,6 @@ export const zhTranslations: Record<string, string> = {
   'Are you sure you want to remove {{name}} from the workspace?':
     '确定要从工作区移除 {{name}} 吗？',
   'Also delete branch {{name}}': '同时删除分支 {{name}}',
-  'Auto-detect agent CLI in WSL': '在 WSL 中检测 Agent CLI',
   Background: '背景',
   Branch: '分支',
   'Branch already exists. Choose a different name.': '该分支已存在，请使用其他分支名',
@@ -407,7 +406,6 @@ export const zhTranslations: Record<string, string> = {
     '新版本 {{version}} 已下载完成，是否立即重启安装？',
   'Version {{version}} is available. Please download it manually.':
     '新版本 {{version}} 已发布，请前往下载页面手动更新。',
-  'WSL detection': 'WSL 检测',
   中文: '中文',
   // Editor settings
   Editor: '编辑器',

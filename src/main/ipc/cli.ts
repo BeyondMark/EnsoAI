@@ -1,29 +1,14 @@
 import type { CustomAgent } from '@shared/types';
 import { IPC_CHANNELS } from '@shared/types';
 import { ipcMain } from 'electron';
-import { type CliDetectOptions, cliDetector } from '../services/cli/CliDetector';
+import { cliDetector } from '../services/cli/CliDetector';
 import { cliInstaller } from '../services/cli/CliInstaller';
-
-interface ExtendedCliDetectOptions extends CliDetectOptions {
-  forceRefresh?: boolean;
-}
 
 export function registerCliHandlers(): void {
   ipcMain.handle(
-    IPC_CHANNELS.CLI_DETECT,
-    async (_, customAgents?: CustomAgent[], options?: ExtendedCliDetectOptions) => {
-      // Force refresh cache if requested
-      if (options?.forceRefresh) {
-        cliDetector.invalidateCache();
-      }
-      return await cliDetector.detectAll(customAgents, options);
-    }
-  );
-
-  ipcMain.handle(
     IPC_CHANNELS.CLI_DETECT_ONE,
-    async (_, agentId: string, customAgent?: CustomAgent, options?: CliDetectOptions) => {
-      return await cliDetector.detectOne(agentId, customAgent, options);
+    async (_, agentId: string, customAgent?: CustomAgent) => {
+      return await cliDetector.detectOne(agentId, customAgent);
     }
   );
 

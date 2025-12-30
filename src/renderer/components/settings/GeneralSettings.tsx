@@ -31,8 +31,6 @@ export function GeneralSettings() {
     setTerminalScrollback,
     shellConfig,
     setShellConfig,
-    wslEnabled,
-    setWslEnabled,
     agentNotificationEnabled,
     setAgentNotificationEnabled,
     agentNotificationDelay,
@@ -257,17 +255,6 @@ export function GeneralSettings() {
           <p className="text-xs text-muted-foreground">{t('Apply on new terminals')}</p>
         </div>
       </div>
-
-      {/* WSL Settings (Windows only) */}
-      {isWindows && (
-        <div className="grid grid-cols-[100px_1fr] items-center gap-4">
-          <span className="text-sm font-medium">{t('WSL detection')}</span>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{t('Auto-detect agent CLI in WSL')}</p>
-            <Switch checked={wslEnabled} onCheckedChange={setWslEnabled} />
-          </div>
-        </div>
-      )}
 
       {/* Renderer */}
       <div className="grid grid-cols-[100px_1fr] items-start gap-4">
