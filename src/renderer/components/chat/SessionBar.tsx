@@ -17,6 +17,7 @@ export interface Session {
   repoPath: string; // repository path this session belongs to
   cwd: string; // worktree path this session belongs to
   environment?: 'native' | 'wsl' | 'hapi' | 'happy'; // execution environment (default: native)
+  displayOrder?: number; // order in SessionBar (lower = first), used for drag reorder
 }
 
 interface SessionBarProps {
@@ -80,25 +81,50 @@ export function SessionBar({
   // Tab drag reorder
   const draggedTabIndexRef = useRef<number | null>(null);
 
+  // Store drag image element for cleanup
+  const dragImageRef = useRef<HTMLDivElement | null>(null);
+
   const handleTabDragStart = useCallback((e: React.DragEvent, index: number) => {
     draggedTabIndexRef.current = index;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(index));
 
-    // Create custom drag image to preserve rounded style
+    // Create a simple styled drag image
     const target = e.currentTarget as HTMLElement;
-    const clone = target.cloneNode(true) as HTMLElement;
-    clone.style.position = 'absolute';
-    clone.style.top = '-9999px';
-    clone.style.borderRadius = '9999px';
-    clone.style.overflow = 'hidden';
-    document.body.appendChild(clone);
-    e.dataTransfer.setDragImage(clone, target.offsetWidth / 2, target.offsetHeight / 2);
-    // Clean up clone after drag starts
-    requestAnimationFrame(() => document.body.removeChild(clone));
+    const computedStyle = window.getComputedStyle(target);
+    const textContent = target.querySelector('span')?.textContent || '';
+
+    const dragImage = document.createElement('div');
+    dragImage.textContent = textContent;
+    dragImage.style.cssText = `
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      padding: ${computedStyle.padding};
+      background-color: ${computedStyle.backgroundColor};
+      color: ${computedStyle.color};
+      font-size: ${computedStyle.fontSize};
+      font-family: ${computedStyle.fontFamily};
+      border-radius: 9999px;
+      white-space: nowrap;
+      pointer-events: none;
+    `;
+
+    document.body.appendChild(dragImage);
+    dragImageRef.current = dragImage;
+    e.dataTransfer.setDragImage(dragImage, dragImage.offsetWidth / 2, dragImage.offsetHeight / 2);
 
     // Prevent bar dragging while tab dragging
     e.stopPropagation();
+  }, []);
+
+  const handleTabDragEnd = useCallback(() => {
+    // Clean up drag image
+    if (dragImageRef.current) {
+      document.body.removeChild(dragImageRef.current);
+      dragImageRef.current = null;
+    }
+    draggedTabIndexRef.current = null;
   }, []);
 
   const handleTabDragOver = useCallback((e: React.DragEvent) => {
@@ -375,6 +401,7 @@ export function SessionBar({
                 key={session.id}
                 draggable
                 onDragStart={(e) => handleTabDragStart(e, index)}
+                onDragEnd={handleTabDragEnd}
                 onDragOver={handleTabDragOver}
                 onDrop={(e) => handleTabDrop(e, index)}
                 onClick={() => onSelectSession(session.id)}

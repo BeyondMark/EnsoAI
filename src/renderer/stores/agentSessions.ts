@@ -67,10 +67,21 @@ export const useAgentSessionsStore = create<AgentSessionsState>()(
     activeIds: initialState.activeIds,
 
     addSession: (session) =>
-      set((state) => ({
-        sessions: [...state.sessions, session],
-        activeIds: { ...state.activeIds, [session.cwd]: session.id },
-      })),
+      set((state) => {
+        // Calculate displayOrder: max order in same worktree + 1
+        const worktreeSessions = state.sessions.filter(
+          (s) => s.repoPath === session.repoPath && s.cwd === session.cwd
+        );
+        const maxOrder = worktreeSessions.reduce(
+          (max, s) => Math.max(max, s.displayOrder ?? 0),
+          -1
+        );
+        const newSession = { ...session, displayOrder: maxOrder + 1 };
+        return {
+          sessions: [...state.sessions, newSession],
+          activeIds: { ...state.activeIds, [session.cwd]: session.id },
+        };
+      }),
 
     removeSession: (id) =>
       set((state) => {
@@ -90,26 +101,43 @@ export const useAgentSessionsStore = create<AgentSessionsState>()(
 
     reorderSessions: (repoPath, cwd, fromIndex, toIndex) =>
       set((state) => {
-        // Get sessions for current worktree
-        const worktreeSessions = state.sessions.filter(
-          (s) => s.repoPath === repoPath && s.cwd === cwd
-        );
-        const otherSessions = state.sessions.filter(
-          (s) => !(s.repoPath === repoPath && s.cwd === cwd)
-        );
+        // Get sessions for current worktree, sorted by displayOrder
+        const worktreeSessions = state.sessions
+          .filter((s) => s.repoPath === repoPath && s.cwd === cwd)
+          .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
-        // Reorder within worktree sessions
-        const reordered = [...worktreeSessions];
-        const [moved] = reordered.splice(fromIndex, 1);
-        if (!moved) return state;
-        reordered.splice(toIndex, 0, moved);
+        if (fromIndex < 0 || fromIndex >= worktreeSessions.length) return state;
+        if (toIndex < 0 || toIndex >= worktreeSessions.length) return state;
 
-        // Combine back: other sessions + reordered worktree sessions
-        return { sessions: [...otherSessions, ...reordered] };
+        // Build new order array
+        const orderedIds = worktreeSessions.map((s) => s.id);
+        const [movedId] = orderedIds.splice(fromIndex, 1);
+        orderedIds.splice(toIndex, 0, movedId);
+
+        // Create id -> new displayOrder map
+        const newOrderMap = new Map<string, number>();
+        for (let i = 0; i < orderedIds.length; i++) {
+          newOrderMap.set(orderedIds[i], i);
+        }
+
+        // Update displayOrder for affected sessions only (don't reorder array)
+        return {
+          sessions: state.sessions.map((s) => {
+            if (s.repoPath === repoPath && s.cwd === cwd) {
+              const newOrder = newOrderMap.get(s.id);
+              if (newOrder !== undefined && newOrder !== s.displayOrder) {
+                return { ...s, displayOrder: newOrder };
+              }
+            }
+            return s;
+          }),
+        };
       }),
 
     getSessions: (repoPath, cwd) => {
-      return get().sessions.filter((s) => s.repoPath === repoPath && s.cwd === cwd);
+      return get()
+        .sessions.filter((s) => s.repoPath === repoPath && s.cwd === cwd)
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
     },
 
     getActiveSessionId: (repoPath, cwd) => {

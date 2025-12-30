@@ -124,9 +124,11 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
     return firstSession?.id || null;
   }, [activeIds, allSessions, repoPath, cwd]);
 
-  // Filter sessions for current repo+worktree (for SessionBar display)
+  // Filter sessions for current repo+worktree (for SessionBar display, sorted by displayOrder)
   const currentWorktreeSessions = useMemo(() => {
-    return allSessions.filter((s) => s.repoPath === repoPath && s.cwd === cwd);
+    return allSessions
+      .filter((s) => s.repoPath === repoPath && s.cwd === cwd)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
   }, [allSessions, repoPath, cwd]);
 
   // Create initial session when switching to a new repo+worktree
