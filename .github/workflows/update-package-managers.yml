@@ -216,19 +216,12 @@ jobs:
           git diff --cached --quiet || git commit -m "Update EnsoAI to ${{ steps.version.outputs.tag }}"
           git push
 
-  # TODO: 启用 winget 自动更新（首次提交审核通过后取消注释）
-  # update-winget:
-  #   name: Update WinGet
-  #   runs-on: windows-latest
-  #   if: false  # 临时禁用，等待首次提交审核通过
   update-winget:
     name: Update WinGet
     runs-on: ubuntu-latest
-    if: false  # 临时禁用，等待首次提交审核通过
     steps:
       - name: Set Version
         id: version
-        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.tag }}"
@@ -242,7 +235,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Wait for release assets
-        run: Start-Sleep -Seconds 60
+        run: sleep 60
 
       - name: Submit to WinGet
         uses: vedantmgoyal9/winget-releaser@main
