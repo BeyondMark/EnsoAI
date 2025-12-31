@@ -179,6 +179,7 @@ export const zhTranslations: Record<string, string> = {
   Primary: '主',
   Refresh: '刷新',
   'Refresh enabled agents': '刷新已启用的 Agent',
+  'Refresh terminal': '刷新终端',
   Renamed: '重命名',
   Remove: '移除',
   'Remove repository': '移除仓库',
