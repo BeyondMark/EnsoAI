@@ -174,7 +174,7 @@ export interface ClaudeCodeIntegrationSettings {
 }
 
 export const defaultClaudeCodeIntegrationSettings: ClaudeCodeIntegrationSettings = {
-  enabled: false,
+  enabled: true,
   selectionChangedDebounce: 300,
   atMentionedKeybinding: { key: 'm', meta: true, shift: true }, // Cmd/Ctrl+Shift+M
 };
