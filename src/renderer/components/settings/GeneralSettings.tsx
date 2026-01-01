@@ -78,8 +78,8 @@ export function GeneralSettings() {
 
   const rendererOptions = React.useMemo(
     () => [
-      { value: 'webgl', label: 'WebGL', description: t('Best performance (recommended)') },
-      { value: 'dom', label: 'DOM', description: t('Basic, lower performance') },
+      { value: 'dom', label: 'DOM', description: t('Best compatibility (recommended)') },
+      { value: 'webgl', label: 'WebGL', description: t('Higher performance, may have issues') },
     ],
     [t]
   );

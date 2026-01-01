@@ -474,7 +474,7 @@ export const useSettingsStore = create<SettingsState>()(
       terminalFontWeight: 'normal',
       terminalFontWeightBold: '500',
       terminalTheme: 'Dracula',
-      terminalRenderer: 'webgl',
+      terminalRenderer: 'dom',
       terminalScrollback: 10000,
       terminalKeybindings: defaultTerminalKeybindings,
       mainTabKeybindings: defaultMainTabKeybindings,
