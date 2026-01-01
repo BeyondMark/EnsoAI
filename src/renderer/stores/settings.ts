@@ -668,8 +668,11 @@ export const useSettingsStore = create<SettingsState>()(
         const persisted = persistedState as Partial<SettingsState>;
 
         // Migrate legacy 'canvas' renderer to 'webgl' (canvas support was removed)
+        // Cast to string for comparison since persisted data may contain old values
         const terminalRenderer =
-          persisted.terminalRenderer === 'canvas' ? 'webgl' : persisted.terminalRenderer;
+          (persisted.terminalRenderer as string) === 'canvas'
+            ? 'webgl'
+            : persisted.terminalRenderer;
 
         return {
           ...currentState,
