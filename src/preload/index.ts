@@ -20,6 +20,8 @@ import type {
   GitLogEntry,
   GitStatus,
   GitWorktree,
+  McpServer,
+  McpServerConfig,
   MergeConflict,
   MergeConflictContent,
   MergeState,
@@ -437,6 +439,51 @@ const electronAPI = {
     }> => ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROVIDER_READ_SETTINGS),
     apply: (provider: import('@shared/types').ClaudeProvider): Promise<boolean> =>
       ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROVIDER_APPLY, provider),
+  },
+
+  // Claude Config (MCP, Prompts, Plugins)
+  claudeConfig: {
+    // MCP Management
+    mcp: {
+      read: (): Promise<Record<string, McpServerConfig>> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_MCP_READ),
+      sync: (servers: McpServer[]): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_MCP_SYNC, servers),
+      upsert: (server: McpServer): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_MCP_UPSERT, server),
+      delete: (serverId: string): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_MCP_DELETE, serverId),
+    },
+    // Prompts Management
+    prompts: {
+      read: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROMPTS_READ),
+      write: (content: string): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROMPTS_WRITE, content),
+      backup: (): Promise<string | null> => ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PROMPTS_BACKUP),
+    },
+    // Plugins Management
+    plugins: {
+      list: (): Promise<import('@shared/types').Plugin[]> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_LIST),
+      setEnabled: (pluginId: string, enabled: boolean): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_SET_ENABLED, pluginId, enabled),
+      available: (marketplace?: string): Promise<import('@shared/types').AvailablePlugin[]> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_AVAILABLE, marketplace),
+      install: (pluginName: string, marketplace?: string): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_INSTALL, pluginName, marketplace),
+      uninstall: (pluginId: string): Promise<boolean> =>
+        ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_UNINSTALL, pluginId),
+      marketplaces: {
+        list: (): Promise<import('@shared/types').PluginMarketplace[]> =>
+          ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_MARKETPLACES_LIST),
+        add: (repo: string): Promise<boolean> =>
+          ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_MARKETPLACES_ADD, repo),
+        remove: (name: string): Promise<boolean> =>
+          ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_MARKETPLACES_REMOVE, name),
+        refresh: (name?: string): Promise<boolean> =>
+          ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_PLUGINS_MARKETPLACES_REFRESH, name),
+      },
+    },
   },
 
   // Search

@@ -10,8 +10,11 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useI18n } from '@/i18n';
 import { useSettingsStore } from '@/stores/settings';
-import { KeybindingInput } from './KeybindingsSettings';
 import { ProviderList } from './claude-provider';
+import { KeybindingInput } from './KeybindingsSettings';
+import { McpSection } from './mcp';
+import { PluginsSection } from './plugins';
+import { PromptsSection } from './prompts';
 
 export function IntegrationSettings() {
   const { t } = useI18n();
@@ -137,6 +140,15 @@ export function IntegrationSettings() {
             </div>
             <ProviderList />
           </div>
+
+          {/* MCP Servers */}
+          <McpSection />
+
+          {/* Plugins */}
+          <PluginsSection />
+
+          {/* Prompts */}
+          <PromptsSection />
         </div>
       )}
 

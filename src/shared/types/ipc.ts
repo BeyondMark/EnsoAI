@@ -127,6 +127,28 @@ export const IPC_CHANNELS = {
   CLAUDE_PROVIDER_READ_SETTINGS: 'claude:provider:readSettings',
   CLAUDE_PROVIDER_APPLY: 'claude:provider:apply',
 
+  // Claude MCP Management
+  CLAUDE_MCP_READ: 'claude:mcp:read',
+  CLAUDE_MCP_SYNC: 'claude:mcp:sync',
+  CLAUDE_MCP_UPSERT: 'claude:mcp:upsert',
+  CLAUDE_MCP_DELETE: 'claude:mcp:delete',
+
+  // Claude Prompts Management
+  CLAUDE_PROMPTS_READ: 'claude:prompts:read',
+  CLAUDE_PROMPTS_WRITE: 'claude:prompts:write',
+  CLAUDE_PROMPTS_BACKUP: 'claude:prompts:backup',
+
+  // Claude Plugins Management
+  CLAUDE_PLUGINS_LIST: 'claude:plugins:list',
+  CLAUDE_PLUGINS_SET_ENABLED: 'claude:plugins:setEnabled',
+  CLAUDE_PLUGINS_AVAILABLE: 'claude:plugins:available',
+  CLAUDE_PLUGINS_INSTALL: 'claude:plugins:install',
+  CLAUDE_PLUGINS_UNINSTALL: 'claude:plugins:uninstall',
+  CLAUDE_PLUGINS_MARKETPLACES_LIST: 'claude:plugins:marketplaces:list',
+  CLAUDE_PLUGINS_MARKETPLACES_ADD: 'claude:plugins:marketplaces:add',
+  CLAUDE_PLUGINS_MARKETPLACES_REMOVE: 'claude:plugins:marketplaces:remove',
+  CLAUDE_PLUGINS_MARKETPLACES_REFRESH: 'claude:plugins:marketplaces:refresh',
+
   // Search
   SEARCH_FILES: 'search:files',
   SEARCH_CONTENT: 'search:content',
