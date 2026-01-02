@@ -921,8 +921,8 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
 
   if (!cwd) return null;
 
-  // Check if there are any groups with actual content (not just empty state objects)
-  const hasAnyGroups = Object.values(worktreeGroupStates).some((state) => state.groups.length > 0);
+  // Check if current worktree has any groups (used for empty state detection)
+  const hasAnyGroups = groups.length > 0;
 
   // Helper to find session info (which worktree, group, index)
   const findSessionInfo = (sessionId: string) => {
@@ -951,11 +951,18 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
     return positions;
   };
 
-  // If no groups and no sessions, show empty state
-  if (!hasAnyGroups && currentWorktreeSessions.length === 0) {
-    return (
-      <div className="relative h-full w-full">
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-background">
+  // Check if current worktree has no sessions (for empty state overlay)
+  const showEmptyState = !hasAnyGroups && currentWorktreeSessions.length === 0;
+
+  // Get current worktree's group positions for terminal placement
+  const currentGroupPositions = getGroupPositions(currentGroupState);
+
+  return (
+    <div className="relative h-full w-full">
+      {/* Empty state overlay - shown when current worktree has no sessions */}
+      {/* IMPORTANT: Don't use early return here - terminals must stay mounted to prevent PTY destruction */}
+      {showEmptyState && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-4 text-muted-foreground bg-background">
           <Sparkles className="h-12 w-12 opacity-50" />
           <p className="text-sm">{t('No agent sessions')}</p>
           <div
@@ -1019,15 +1026,7 @@ export function AgentPanel({ repoPath, cwd, isActive = false, onSwitchWorktree }
             )}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Get current worktree's group positions for terminal placement
-  const currentGroupPositions = getGroupPositions(currentGroupState);
-
-  return (
-    <div className="relative h-full w-full">
+      )}
       {/* Resize handles - only for current worktree */}
       {currentGroupState.groups.length > 1 &&
         currentGroupState.groups.map((group, index) => {
