@@ -890,6 +890,28 @@ export const useSettingsStore = create<SettingsState>()(
           if (state.proxySettings) {
             window.electronAPI.app.setProxy(state.proxySettings);
           }
+
+          // Auto-detect best shell on Windows for new users
+          // Only run once: check localStorage flag to avoid overwriting user's explicit choice
+          const shellAutoDetectKey = 'enso-shell-auto-detected';
+          if (
+            window.electronAPI?.env?.platform === 'win32' &&
+            !localStorage.getItem(shellAutoDetectKey)
+          ) {
+            localStorage.setItem(shellAutoDetectKey, 'true');
+            // Async detection: upgrade to PowerShell 7 if available
+            window.electronAPI.shell
+              .detect()
+              .then((shells) => {
+                const ps7 = shells.find((s) => s.id === 'powershell7' && s.available);
+                if (ps7) {
+                  useSettingsStore.getState().setShellConfig({ shellType: 'powershell7' });
+                }
+              })
+              .catch((err) => {
+                console.warn('Shell auto-detection failed:', err);
+              });
+          }
         }
       },
     }
