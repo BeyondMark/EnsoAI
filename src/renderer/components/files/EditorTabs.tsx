@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Menu, MenuItem, MenuPopup, MenuSeparator } from '@/components/ui/menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { toastManager } from '@/components/ui/toast';
 import { useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { EditorTab } from '@/stores/editor';
@@ -70,6 +71,28 @@ export function EditorTabs({
   const canCloseAll = !!onCloseAll && tabs.length > 0;
   const canCloseLeft = !!onCloseLeft && menuTabIndex > 0;
   const canCloseRight = !!onCloseRight && menuTabIndex >= 0 && menuTabIndex < tabs.length - 1;
+
+  const handleCopyPath = useCallback(async () => {
+    if (!menuTabPath) return;
+    try {
+      await navigator.clipboard.writeText(menuTabPath);
+      toastManager.add({
+        title: t('Copied'),
+        description: t('Path copied to clipboard'),
+        type: 'success',
+        timeout: 2000,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toastManager.add({
+        title: t('Copy failed'),
+        description: message || t('Failed to copy content'),
+        type: 'error',
+        timeout: 3000,
+      });
+    }
+    setMenuOpen(false);
+  }, [menuTabPath, t]);
 
   if (tabs.length === 0) {
     return null;
@@ -198,6 +221,10 @@ export function EditorTabs({
             }}
           >
             {t('Close All Tabs')}
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem disabled={!menuTabPath} onClick={handleCopyPath}>
+            {t('Copy Path')}
           </MenuItem>
         </MenuPopup>
       </Menu>
