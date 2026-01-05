@@ -535,4 +535,46 @@ ${gitLog || '(No commit history available)'}`;
       return git.fetchPullRequest(prNumber, localBranch);
     }
   );
+
+  // Git Clone - Validate URL
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_VALIDATE_URL,
+    async (_, url: string): Promise<{ valid: boolean; repoName?: string }> => {
+      const valid = GitService.isValidGitUrl(url);
+      return {
+        valid,
+        repoName: valid ? GitService.extractRepoName(url) : undefined,
+      };
+    }
+  );
+
+  // Git Clone - Clone repository
+  ipcMain.handle(
+    IPC_CHANNELS.GIT_CLONE,
+    async (
+      event,
+      remoteUrl: string,
+      targetPath: string
+    ): Promise<{ success: boolean; path: string; error?: string }> => {
+      try {
+        await GitService.clone(remoteUrl, targetPath, (progress) => {
+          // Send progress updates to renderer
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(IPC_CHANNELS.GIT_CLONE_PROGRESS, progress);
+          }
+        });
+
+        // Register as authorized workdir
+        registerAuthorizedWorkdir(targetPath);
+
+        return { success: true, path: targetPath };
+      } catch (error) {
+        return {
+          success: false,
+          path: targetPath,
+          error: error instanceof Error ? error.message : 'Clone failed',
+        };
+      }
+    }
+  );
 }

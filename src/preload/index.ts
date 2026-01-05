@@ -3,6 +3,8 @@ import type { Locale } from '@shared/i18n';
 import type {
   AgentCliInfo,
   AgentMetadata,
+  CloneProgress,
+  CloneResult,
   CommitFileChange,
   ConflictResolution,
   ContentSearchParams,
@@ -31,6 +33,7 @@ import type {
   ShellInfo,
   TerminalCreateOptions,
   TerminalResizeOptions,
+  ValidateUrlResult,
   WorktreeCreateOptions,
   WorktreeMergeCleanupOptions,
   WorktreeMergeOptions,
@@ -133,6 +136,16 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.GIT_PR_LIST, workdir),
     fetchPullRequest: (workdir: string, prNumber: number, localBranch: string): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_PR_FETCH, workdir, prNumber, localBranch),
+    // Git Clone
+    validateUrl: (url: string): Promise<ValidateUrlResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_VALIDATE_URL, url),
+    clone: (remoteUrl: string, targetPath: string): Promise<CloneResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_CLONE, remoteUrl, targetPath),
+    onCloneProgress: (callback: (progress: CloneProgress) => void): (() => void) => {
+      const handler = (_: unknown, progress: CloneProgress) => callback(progress);
+      ipcRenderer.on(IPC_CHANNELS.GIT_CLONE_PROGRESS, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.GIT_CLONE_PROGRESS, handler);
+    },
   },
 
   // Worktree

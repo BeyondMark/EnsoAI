@@ -1,3 +1,4 @@
+export { AddRepositoryDialog } from './AddRepositoryDialog';
 export { BranchSelector } from './BranchSelector';
 export { CommitForm } from './CommitForm';
 export { CommitHistory } from './CommitHistory';

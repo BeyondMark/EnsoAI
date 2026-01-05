@@ -1,0 +1,414 @@
+import type { CloneProgress } from '@shared/types';
+import { FolderOpen, Globe, Loader2 } from 'lucide-react';
+import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useI18n } from '@/i18n';
+
+type AddMode = 'local' | 'remote';
+
+interface AddRepositoryDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAddLocal: (path: string) => void;
+  onCloneComplete: (path: string) => void;
+}
+
+// Progress stage display labels
+const stageLabels: Record<string, string> = {
+  counting: 'Counting objects...',
+  compressing: 'Compressing objects...',
+  receiving: 'Receiving objects...',
+  resolving: 'Resolving deltas...',
+};
+
+export function AddRepositoryDialog({
+  open,
+  onOpenChange,
+  onAddLocal,
+  onCloneComplete,
+}: AddRepositoryDialogProps) {
+  const { t } = useI18n();
+  const [mode, setMode] = React.useState<AddMode>('local');
+
+  // Local mode state
+  const [localPath, setLocalPath] = React.useState('');
+
+  // Remote mode state
+  const [remoteUrl, setRemoteUrl] = React.useState('');
+  const [targetDir, setTargetDir] = React.useState('');
+  const [repoName, setRepoName] = React.useState('');
+  const [isValidUrl, setIsValidUrl] = React.useState(false);
+
+  // Clone progress state
+  const [isCloning, setIsCloning] = React.useState(false);
+  const [cloneProgress, setCloneProgress] = React.useState<CloneProgress | null>(null);
+
+  // Error state
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Validate URL and extract repo name when URL changes
+  React.useEffect(() => {
+    if (!remoteUrl.trim()) {
+      setIsValidUrl(false);
+      setRepoName('');
+      return;
+    }
+
+    const validateUrl = async () => {
+      try {
+        const result = await window.electronAPI.git.validateUrl(remoteUrl.trim());
+        setIsValidUrl(result.valid);
+        if (result.valid && result.repoName) {
+          setRepoName(result.repoName);
+        }
+      } catch {
+        setIsValidUrl(false);
+      }
+    };
+
+    // Debounce validation
+    const timer = setTimeout(validateUrl, 300);
+    return () => clearTimeout(timer);
+  }, [remoteUrl]);
+
+  // Listen for clone progress updates
+  React.useEffect(() => {
+    if (!isCloning) return;
+
+    const cleanup = window.electronAPI.git.onCloneProgress((progress) => {
+      setCloneProgress(progress);
+    });
+
+    return cleanup;
+  }, [isCloning]);
+
+  const handleSelectLocalPath = async () => {
+    try {
+      const selectedPath = await window.electronAPI.dialog.openDirectory();
+      if (selectedPath) {
+        setLocalPath(selectedPath);
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Failed to select directory'));
+    }
+  };
+
+  const handleSelectTargetDir = async () => {
+    try {
+      const selectedPath = await window.electronAPI.dialog.openDirectory();
+      if (selectedPath) {
+        setTargetDir(selectedPath);
+        setError(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Failed to select directory'));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (mode === 'local') {
+      if (!localPath) {
+        setError(t('Please select a local repository directory'));
+        return;
+      }
+      onAddLocal(localPath);
+      handleClose();
+    } else {
+      // Remote mode
+      if (!isValidUrl) {
+        setError(t('Please enter a valid Git URL'));
+        return;
+      }
+      if (!targetDir) {
+        setError(t('Please select a save location'));
+        return;
+      }
+      if (!repoName.trim()) {
+        setError(t('Please enter a repository name'));
+        return;
+      }
+
+      const isWindows = window.electronAPI.env.platform === 'win32';
+      const pathSep = isWindows ? '\\' : '/';
+      const fullPath = `${targetDir}${pathSep}${repoName.trim()}`;
+
+      setIsCloning(true);
+      setCloneProgress(null);
+
+      try {
+        const result = await window.electronAPI.git.clone(remoteUrl.trim(), fullPath);
+        if (result.success) {
+          onCloneComplete(result.path);
+          handleClose();
+        } else {
+          handleCloneError(result.error || t('Clone failed'));
+        }
+      } catch (err) {
+        handleCloneError(err instanceof Error ? err.message : t('Clone failed'));
+      } finally {
+        setIsCloning(false);
+        setCloneProgress(null);
+      }
+    }
+  };
+
+  const handleCloneError = (errorMessage: string) => {
+    if (errorMessage.includes('already exists')) {
+      setError(
+        t(
+          'Target directory already exists. Please choose a different location or rename the repository.'
+        )
+      );
+    } else if (errorMessage.includes('Authentication failed')) {
+      setError(t('Authentication failed. Please check your system credentials.'));
+    } else if (errorMessage.includes('Permission denied')) {
+      setError(t('SSH authentication failed. Please check your SSH key configuration.'));
+    } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
+      setError(t('Remote repository not found. Please check the URL.'));
+    } else if (errorMessage.includes('unable to access')) {
+      setError(t('Unable to connect to remote repository. Please check your network.'));
+    } else if (errorMessage.includes('Invalid Git URL')) {
+      setError(t('Invalid Git URL format. Please enter a valid HTTPS or SSH URL.'));
+    } else {
+      setError(errorMessage);
+    }
+  };
+
+  const handleClose = () => {
+    if (isCloning) return; // Prevent closing while cloning
+    resetForm();
+    onOpenChange(false);
+  };
+
+  const resetForm = () => {
+    setMode('local');
+    setLocalPath('');
+    setRemoteUrl('');
+    setTargetDir('');
+    setRepoName('');
+    setIsValidUrl(false);
+    setError(null);
+    setIsCloning(false);
+    setCloneProgress(null);
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen && isCloning) return; // Prevent closing while cloning
+    if (!newOpen) {
+      resetForm();
+    }
+    onOpenChange(newOpen);
+  };
+
+  const getProgressLabel = () => {
+    if (!cloneProgress) return '';
+    const label = stageLabels[cloneProgress.stage] || cloneProgress.stage;
+    return t(label);
+  };
+
+  const isSubmitDisabled = () => {
+    if (isCloning) return true;
+    if (mode === 'local') return !localPath;
+    return !isValidUrl || !targetDir || !repoName.trim();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogPopup>
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{t('Add Repository')}</DialogTitle>
+            <DialogDescription>
+              {t('Add a local Git repository or clone from a remote URL.')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogPanel className="space-y-4">
+            <Tabs value={mode} onValueChange={(v) => !isCloning && setMode(v as AddMode)}>
+              <TabsList className="w-full">
+                <TabsTrigger value="local" className="flex-1" disabled={isCloning}>
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  {t('Local')}
+                </TabsTrigger>
+                <TabsTrigger value="remote" className="flex-1" disabled={isCloning}>
+                  <Globe className="mr-2 h-4 w-4" />
+                  {t('Remote')}
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Local Repository Tab */}
+              <TabsContent value="local" className="mt-4 space-y-4">
+                <Field>
+                  <FieldLabel>{t('Repository directory')}</FieldLabel>
+                  <div className="flex w-full gap-2">
+                    <Input
+                      value={localPath}
+                      readOnly
+                      placeholder={t('Select a local Git repository...')}
+                      className="min-w-0 flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSelectLocalPath}
+                      className="shrink-0"
+                    >
+                      {t('Browse')}
+                    </Button>
+                  </div>
+                  <FieldDescription>
+                    {t('Select an existing Git repository on your computer.')}
+                  </FieldDescription>
+                </Field>
+              </TabsContent>
+
+              {/* Remote Repository Tab */}
+              <TabsContent value="remote" className="mt-4 space-y-4">
+                {/* Repository URL */}
+                <Field>
+                  <FieldLabel>{t('Repository URL')}</FieldLabel>
+                  <Input
+                    value={remoteUrl}
+                    onChange={(e) => setRemoteUrl(e.target.value)}
+                    placeholder="https://github.com/user/repo.git"
+                    disabled={isCloning}
+                    autoFocus
+                  />
+                  <FieldDescription>
+                    {t('Supports HTTPS and SSH protocols.')}
+                    {remoteUrl && !isValidUrl && (
+                      <span className="text-destructive ml-2">{t('Invalid URL format')}</span>
+                    )}
+                    {remoteUrl && isValidUrl && (
+                      <span className="text-green-600 ml-2">✓ {t('Valid URL')}</span>
+                    )}
+                  </FieldDescription>
+                </Field>
+
+                {/* Save Location */}
+                <Field>
+                  <FieldLabel>{t('Save location')}</FieldLabel>
+                  <div className="flex w-full gap-2">
+                    <Input
+                      value={targetDir}
+                      readOnly
+                      placeholder={t('Select a directory...')}
+                      className="min-w-0 flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSelectTargetDir}
+                      disabled={isCloning}
+                      className="shrink-0"
+                    >
+                      {t('Browse')}
+                    </Button>
+                  </div>
+                </Field>
+
+                {/* Repository Name */}
+                <Field>
+                  <FieldLabel>{t('Repository name')}</FieldLabel>
+                  <Input
+                    value={repoName}
+                    onChange={(e) => setRepoName(e.target.value)}
+                    placeholder={t('Repository folder name')}
+                    disabled={isCloning}
+                  />
+                  <FieldDescription>
+                    {t('The folder name for the cloned repository.')}
+                  </FieldDescription>
+                </Field>
+
+                {/* Clone Progress */}
+                {isCloning && (
+                  <div className="space-y-2">
+                    <Progress value={cloneProgress?.progress || 0} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {getProgressLabel()}
+                      </span>
+                      <span>{cloneProgress?.progress || 0}%</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Full Path Preview */}
+                {targetDir && repoName && !isCloning && (
+                  <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                    <span className="font-medium">{t('Full path')}:</span>
+                    <code className="ml-1 break-all">
+                      {targetDir}
+                      {window.electronAPI.env.platform === 'win32' ? '\\' : '/'}
+                      {repoName}
+                    </code>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+
+            {/* Error Display */}
+            {error && <div className="text-sm text-destructive">{error}</div>}
+          </DialogPanel>
+
+          <DialogFooter variant="bare">
+            <DialogClose
+              render={
+                <Button variant="outline" disabled={isCloning}>
+                  {t('Cancel')}
+                </Button>
+              }
+            />
+            <Button type="submit" disabled={isSubmitDisabled()}>
+              {isCloning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('Cloning...')}
+                </>
+              ) : mode === 'local' ? (
+                t('Add')
+              ) : (
+                t('Clone')
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogPopup>
+    </Dialog>
+  );
+}
+
+// Trigger button component for external use
+interface AddRepositoryTriggerProps {
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+export function AddRepositoryTrigger({ onClick, children }: AddRepositoryTriggerProps) {
+  return (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  );
+}

@@ -19,6 +19,7 @@ import {
 } from './App/storage';
 import { useAppKeyboardShortcuts } from './App/useAppKeyboardShortcuts';
 import { usePanelResize } from './App/usePanelResize';
+import { AddRepositoryDialog } from './components/git';
 import { ActionPanel } from './components/layout/ActionPanel';
 import { MainContent } from './components/layout/MainContent';
 import { RepositorySidebar } from './components/layout/RepositorySidebar';
@@ -79,6 +80,9 @@ export default function App() {
 
   // Settings dialog state
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Add Repository dialog state
+  const [addRepoDialogOpen, setAddRepoDialogOpen] = useState(false);
 
   // Action panel state
   const [actionPanelOpen, setActionPanelOpen] = useState(false);
@@ -484,11 +488,14 @@ export default function App() {
     [worktrees, handleSelectWorktree]
   );
 
-  const handleAddRepository = async () => {
-    try {
-      const selectedPath = await window.electronAPI.dialog.openDirectory();
-      if (!selectedPath) return;
+  // Open add repository dialog
+  const handleAddRepository = () => {
+    setAddRepoDialogOpen(true);
+  };
 
+  // Handle adding a local repository
+  const handleAddLocalRepository = useCallback(
+    (selectedPath: string) => {
       // Check if repo already exists
       if (repositories.some((r) => r.path === selectedPath)) {
         return;
@@ -507,10 +514,35 @@ export default function App() {
 
       // Auto-select the new repo
       setSelectedRepo(selectedPath);
-    } catch (error) {
-      console.error('Error opening directory dialog:', error);
-    }
-  };
+    },
+    [repositories, saveRepositories]
+  );
+
+  // Handle cloning a remote repository
+  const handleCloneRepository = useCallback(
+    (clonedPath: string) => {
+      // Check if repo already exists
+      if (repositories.some((r) => r.path === clonedPath)) {
+        setSelectedRepo(clonedPath);
+        return;
+      }
+
+      // Extract repo name from path
+      const name = clonedPath.split(/[\\/]/).pop() || clonedPath;
+
+      const newRepo: Repository = {
+        name,
+        path: clonedPath,
+      };
+
+      const updated = [...repositories, newRepo];
+      saveRepositories(updated);
+
+      // Auto-select the new repo
+      setSelectedRepo(clonedPath);
+    },
+    [repositories, saveRepositories]
+  );
 
   const handleCreateWorktree = async (options: WorktreeCreateOptions) => {
     if (!selectedRepo) return;
@@ -778,6 +810,14 @@ export default function App() {
 
       {/* Global Settings Dialog */}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+      {/* Add Repository Dialog */}
+      <AddRepositoryDialog
+        open={addRepoDialogOpen}
+        onOpenChange={setAddRepoDialogOpen}
+        onAddLocal={handleAddLocalRepository}
+        onCloneComplete={handleCloneRepository}
+      />
 
       {/* Action Panel */}
       <ActionPanel

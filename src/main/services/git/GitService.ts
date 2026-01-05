@@ -1,8 +1,9 @@
 import { exec } from 'node:child_process';
-import { promises as fs } from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type {
+  CloneProgress,
   CommitFileChange,
   FileChange,
   FileChangeStatus,
@@ -518,5 +519,65 @@ export class GitService {
         `Failed to fetch PR #${prNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  // Static methods for clone operations
+
+  /**
+   * Validate if a URL is a valid Git URL (HTTPS or SSH)
+   */
+  static isValidGitUrl(url: string): boolean {
+    // HTTPS: https://github.com/user/repo.git or https://github.com/user/repo
+    const httpsPattern = /^https?:\/\/.+\/.+/;
+    // SSH: git@github.com:user/repo.git or git@github.com:user/repo
+    const sshPattern = /^git@.+:.+\/.+/;
+
+    return httpsPattern.test(url) || sshPattern.test(url);
+  }
+
+  /**
+   * Extract repository name from Git URL
+   */
+  static extractRepoName(url: string): string {
+    // Remove .git suffix and extract last path segment
+    const cleaned = url.replace(/\.git$/, '');
+    // Handle both SSH (git@...:user/repo) and HTTPS (https://.../user/repo)
+    const parts = cleaned.split(/[/:]/).filter(Boolean);
+    return parts[parts.length - 1] || 'repository';
+  }
+
+  /**
+   * Clone a remote repository to local path
+   */
+  static async clone(
+    remoteUrl: string,
+    targetPath: string,
+    onProgress?: (progress: CloneProgress) => void
+  ): Promise<void> {
+    // Validate URL format
+    if (!GitService.isValidGitUrl(remoteUrl)) {
+      throw new Error('Invalid Git URL format');
+    }
+
+    // Check if target directory already exists
+    if (existsSync(targetPath)) {
+      throw new Error('Target directory already exists');
+    }
+
+    // Create simple-git instance with progress callback
+    const git = simpleGit({
+      progress: ({ method, stage, progress }) => {
+        if (method === 'clone' && onProgress) {
+          onProgress({ stage, progress });
+        }
+      },
+    }).env({
+      ...process.env,
+      ...getProxyEnvVars(),
+      PATH: getEnhancedPath(),
+    });
+
+    // Execute clone with progress flag
+    await git.clone(remoteUrl, targetPath, ['--progress']);
   }
 }

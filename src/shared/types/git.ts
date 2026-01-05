@@ -91,3 +91,20 @@ export interface GhCliStatus {
   authenticated: boolean;
   error?: string;
 }
+
+// Git Clone types
+export interface CloneProgress {
+  stage: 'counting' | 'compressing' | 'receiving' | 'resolving' | string;
+  progress: number; // 0-100
+}
+
+export interface CloneResult {
+  success: boolean;
+  path: string;
+  error?: string;
+}
+
+export interface ValidateUrlResult {
+  valid: boolean;
+  repoName?: string;
+}

@@ -27,6 +27,10 @@ export const IPC_CHANNELS = {
   GIT_GH_STATUS: 'git:gh:status',
   GIT_PR_LIST: 'git:pr:list',
   GIT_PR_FETCH: 'git:pr:fetch',
+  // Git Clone
+  GIT_CLONE: 'git:clone',
+  GIT_CLONE_PROGRESS: 'git:clone:progress',
+  GIT_VALIDATE_URL: 'git:validate-url',
 
   // Worktree
   WORKTREE_LIST: 'worktree:list',
