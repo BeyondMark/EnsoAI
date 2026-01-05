@@ -48,6 +48,9 @@ interface CreateWorktreeDialogProps {
   isLoading?: boolean;
   onSubmit: (options: WorktreeCreateOptions) => Promise<void>;
   trigger?: React.ReactElement;
+  // Support controlled mode (for context menu trigger)
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 type CreateMode = 'branch' | 'pr';
@@ -59,10 +62,28 @@ export function CreateWorktreeDialog({
   isLoading,
   onSubmit,
   trigger,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: CreateWorktreeDialogProps) {
   const { t } = useI18n();
   const { defaultWorktreePath } = useSettingsStore();
-  const [open, setOpen] = React.useState(false);
+
+  // Internal state (for uncontrolled mode)
+  const [internalOpen, setInternalOpen] = React.useState(false);
+
+  // Determine if controlled mode
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = React.useCallback(
+    (value: boolean) => {
+      if (isControlled) {
+        controlledOnOpenChange?.(value);
+      } else {
+        setInternalOpen(value);
+      }
+    },
+    [isControlled, controlledOnOpenChange]
+  );
   const [mode, setMode] = React.useState<CreateMode>('branch');
   const [baseBranch, setBaseBranch] = React.useState<string>('');
   const [newBranchName, setNewBranchName] = React.useState('');
@@ -286,16 +307,19 @@ export function CreateWorktreeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={
-          trigger ?? (
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              {t('New')}
-            </Button>
-          )
-        }
-      />
+      {/* Only render trigger in uncontrolled mode */}
+      {!isControlled && (
+        <DialogTrigger
+          render={
+            trigger ?? (
+              <Button size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                {t('New')}
+              </Button>
+            )
+          }
+        />
+      )}
       <DialogPopup>
         <form onSubmit={handleSubmit} className="flex flex-col">
           <DialogHeader>

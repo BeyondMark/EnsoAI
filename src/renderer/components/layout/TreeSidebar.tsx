@@ -121,6 +121,34 @@ export function TreeSidebar({
   const [repoMenuTarget, setRepoMenuTarget] = useState<Repository | null>(null);
   const [repoToRemove, setRepoToRemove] = useState<Repository | null>(null);
 
+  // Create worktree dialog (triggered from context menu)
+  const [createWorktreeDialogOpen, setCreateWorktreeDialogOpen] = useState(false);
+  const [pendingCreateWorktree, setPendingCreateWorktree] = useState(false);
+  const [waitingForBranchRefresh, setWaitingForBranchRefresh] = useState(false);
+
+  // Wait for repo switch before triggering branch refresh
+  useEffect(() => {
+    if (pendingCreateWorktree && selectedRepo === repoMenuTarget?.path) {
+      setPendingCreateWorktree(false);
+      // Trigger refresh to get branches and worktree list for the new repo
+      onRefresh();
+      refetchExpandedWorktrees();
+      setWaitingForBranchRefresh(true);
+    }
+  }, [selectedRepo, pendingCreateWorktree, repoMenuTarget, onRefresh, refetchExpandedWorktrees]);
+
+  // Wait for branches to update before opening dialog
+  useEffect(() => {
+    if (waitingForBranchRefresh && branches.length >= 0) {
+      // Small delay to ensure branches state is fully updated
+      const timer = setTimeout(() => {
+        setCreateWorktreeDialogOpen(true);
+        setWaitingForBranchRefresh(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [branches, waitingForBranchRefresh]);
+
   // Worktree delete dialog
   const [worktreeToDelete, setWorktreeToDelete] = useState<GitWorktree | null>(null);
   const [deleteBranch, setDeleteBranch] = useState(false);
@@ -660,6 +688,32 @@ export function TreeSidebar({
             className="fixed z-50 min-w-32 rounded-lg border bg-popover p-1 shadow-lg"
             style={{ left: repoMenuPosition.x, top: repoMenuPosition.y }}
           >
+            {/* New Worktree button */}
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+              onClick={() => {
+                setRepoMenuOpen(false);
+                // Switch to the right-clicked repo first, then wait for state update
+                if (repoMenuTarget && repoMenuTarget.path !== selectedRepo) {
+                  onSelectRepo(repoMenuTarget.path);
+                  setPendingCreateWorktree(true);
+                } else {
+                  // Already on target repo, trigger refresh and open dialog
+                  onRefresh();
+                  refetchExpandedWorktrees();
+                  setCreateWorktreeDialogOpen(true);
+                }
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              {t('New Worktree')}
+            </button>
+
+            {/* Separator */}
+            <div className="my-1 h-px bg-border" />
+
+            {/* Remove repository button */}
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-accent"
@@ -806,6 +860,20 @@ export function TreeSidebar({
           </AlertDialogFooter>
         </AlertDialogPopup>
       </AlertDialog>
+
+      {/* Create Worktree Dialog (triggered from context menu) */}
+      <CreateWorktreeDialog
+        open={createWorktreeDialogOpen}
+        onOpenChange={setCreateWorktreeDialogOpen}
+        branches={branches}
+        projectName={selectedRepo?.split('/').pop() || ''}
+        workdir={workdir}
+        isLoading={isCreating}
+        onSubmit={async (options) => {
+          await onCreateWorktree(options);
+          refetchExpandedWorktrees();
+        }}
+      />
     </aside>
   );
 }
