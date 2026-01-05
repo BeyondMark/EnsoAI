@@ -36,13 +36,16 @@ export function AddRepositoryDialog({
 }: AddRepositoryDialogProps) {
   const { t } = useI18n();
 
-  // Progress stage display labels (使用 t() 支持国际化)
-  const stageLabels: Record<string, string> = {
-    counting: t('Counting objects...'),
-    compressing: t('Compressing objects...'),
-    receiving: t('Receiving objects...'),
-    resolving: t('Resolving deltas...'),
-  };
+  // Progress stage display labels (使用 t() 支持国际化，useMemo 避免重复创建)
+  const stageLabels = React.useMemo<Record<string, string>>(
+    () => ({
+      counting: t('Counting objects...'),
+      compressing: t('Compressing objects...'),
+      receiving: t('Receiving objects...'),
+      resolving: t('Resolving deltas...'),
+    }),
+    [t]
+  );
   const [mode, setMode] = React.useState<AddMode>('local');
 
   // Local mode state

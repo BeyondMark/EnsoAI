@@ -528,9 +528,9 @@ export class GitService {
    */
   static isValidGitUrl(url: string): boolean {
     // HTTPS: https://github.com/user/repo.git or https://github.com/user/repo
-    const httpsPattern = /^https?:\/\/.+\/.+/;
+    const httpsPattern = /^https?:\/\/[\w.-]+\/[\w.-]+\/[\w.-]+(?:\.git)?$/;
     // SSH: git@github.com:user/repo.git or git@github.com:user/repo
-    const sshPattern = /^git@.+:.+\/.+/;
+    const sshPattern = /^git@[\w.-]+:[\w.-]+\/[\w.-]+(?:\.git)?$/;
 
     return httpsPattern.test(url) || sshPattern.test(url);
   }
