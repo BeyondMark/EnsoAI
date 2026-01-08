@@ -490,11 +490,13 @@ export function SessionBar({
                           type="button"
                           key={agentId}
                           onClick={() => handleSelectAgent(agentId)}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground whitespace-nowrap"
                         >
                           <span>{name}</span>
                           {isDefault && (
-                            <span className="text-xs text-muted-foreground">{t('(default)')}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {t('(default)')}
+                            </span>
                           )}
                         </button>
                       );

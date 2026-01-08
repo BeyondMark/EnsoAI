@@ -1036,7 +1036,7 @@ function WorktreeTreeItem({
           onClick={onClick}
           onContextMenu={handleContextMenu}
           className={cn(
-            'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors text-sm',
+            'flex w-full items-center gap-2 rounded-lg pl-5 pr-2 py-1.5 text-left transition-colors text-sm',
             isPrunable && 'opacity-50',
             isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
           )}
