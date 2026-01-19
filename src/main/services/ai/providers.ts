@@ -10,7 +10,7 @@ import type {
 import type { LanguageModel } from 'ai';
 import { createClaudeCode } from 'ai-sdk-provider-claude-code';
 import { createCodexCli } from 'ai-sdk-provider-codex-cli';
-import { createGeminiCli } from 'ai-sdk-provider-gemini-cli-agentic';
+import { createGeminiProvider } from 'ai-sdk-provider-gemini-cli';
 import { killProcessTree } from '../../utils/processUtils';
 
 export type { AIProvider, ModelId, ReasoningEffort } from '@shared/types';
@@ -41,11 +41,8 @@ const claudeCodeProvider = createClaudeCode({
           return proc.exitCode;
         },
         kill: (signal) => {
-          if (isWindows) {
-            killProcessTree(proc);
-            return true;
-          }
-          return proc.kill(signal);
+          killProcessTree(proc, signal);
+          return true;
         },
         on: (event, listener) => proc.on(event, listener),
         once: (event, listener) => proc.once(event, listener),
@@ -63,10 +60,8 @@ const codexCliProvider = createCodexCli({
   },
 });
 
-const geminiCliProvider = createGeminiCli({
-  defaultSettings: {
-    allowedTools: ['read_file', 'list_directory', 'search_files'],
-  },
+const geminiCliProvider = createGeminiProvider({
+  authType: 'oauth-personal',
 });
 
 export interface GetModelOptions {
@@ -92,7 +87,7 @@ export function getModel(modelId: ModelId, options: GetModelOptions = {}): Langu
         cwd,
       });
     case 'gemini-cli':
-      return geminiCliProvider(modelId as GeminiModelId, { cwd });
+      return geminiCliProvider(modelId as GeminiModelId);
     default:
       return claudeCodeProvider(modelId as ClaudeModelId, { cwd });
   }

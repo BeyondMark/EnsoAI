@@ -4,6 +4,7 @@
 
 import type { ChildProcess } from 'node:child_process';
 import { spawnSync } from 'node:child_process';
+import pidtree from 'pidtree';
 
 const isWindows = process.platform === 'win32';
 
@@ -18,7 +19,7 @@ interface ProcessLike {
 /**
  * Kill a process and all its children (process tree).
  * On Windows: uses taskkill /T to kill the process tree synchronously.
- * On Unix: kills the process group using negative PID, or falls back to regular kill.
+ * On Unix: uses pgrep to find all descendants and kills them.
  *
  * @param target - PID number, ChildProcess, or any object with pid and kill method (e.g., IPty)
  * @param signal - Signal to send on Unix (default: SIGKILL)
@@ -52,19 +53,89 @@ export function killProcessTree(
       // Windows: use taskkill synchronously to kill the entire process tree
       spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
     } else {
-      // Unix: try to kill the process group first
+      // Unix: use pgrep to find all descendant processes and kill them recursively
       try {
-        process.kill(-pid, signal);
-      } catch {
-        // If process group kill fails, fall back to regular kill
-        if (typeof target !== 'number' && 'kill' in target) {
-          target.kill(signal);
-        } else {
-          process.kill(pid, signal);
+        const result = spawnSync('pgrep', ['-P', String(pid)], { encoding: 'utf-8' });
+        if (result.stdout) {
+          const childPids = result.stdout.trim().split('\n').filter(Boolean).map(Number);
+          // Recursively kill children first (deepest first)
+          for (const childPid of childPids) {
+            killProcessTree(childPid, signal);
+          }
         }
+      } catch {
+        // pgrep may not exist or fail, continue to kill main process
+      }
+      // Kill the main process
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // Ignore - process may have already exited
       }
     }
   } catch {
     // Process may have already exited, ignore errors
+  }
+}
+
+/**
+ * Kill a process and all its children (process tree) - async version.
+ * Uses pidtree to reliably find all descendant processes.
+ *
+ * @param target - PID number, ChildProcess, or any object with pid and kill method
+ * @param signal - Signal to send (default: SIGKILL)
+ */
+export async function killProcessTreeAsync(
+  target: number | ChildProcess | ProcessLike,
+  signal: NodeJS.Signals = 'SIGKILL'
+): Promise<void> {
+  let pid: number | undefined;
+  if (typeof target === 'number') {
+    pid = target;
+  } else if ('pid' in target) {
+    pid = target.pid;
+  }
+
+  if (!pid) {
+    if (typeof target !== 'number' && 'kill' in target) {
+      try {
+        target.kill(signal);
+      } catch {
+        // Ignore
+      }
+    }
+    return;
+  }
+
+  try {
+    if (isWindows) {
+      spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
+    } else {
+      // Get all descendant PIDs using pidtree
+      let childPids: number[] = [];
+      try {
+        childPids = await pidtree(pid);
+      } catch {
+        // pidtree fails if process already exited
+      }
+
+      // Kill children first (reverse order - deepest first)
+      for (const childPid of childPids.reverse()) {
+        try {
+          process.kill(childPid, signal);
+        } catch {
+          // Ignore - process may have already exited
+        }
+      }
+
+      // Kill the main process
+      try {
+        process.kill(pid, signal);
+      } catch {
+        // Ignore
+      }
+    }
+  } catch {
+    // Ignore
   }
 }
