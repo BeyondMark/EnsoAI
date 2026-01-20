@@ -26,7 +26,6 @@ files:
   - "!node_modules/@tailwindcss/**"
   - "!node_modules/tailwindcss/**"
   - "!node_modules/jiti/**"
-  - "!node_modules/@babel/**"
   # Exclude native module build artifacts (source not needed at runtime)
   - "!node_modules/node-pty/src/**"
   - "!node_modules/node-pty/deps/**"

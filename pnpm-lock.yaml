@@ -16,7 +16,7 @@ overrides:
 
 patchedDependencies:
   '@google/gemini-cli-core@0.22.4':
-    hash: bc3ccafe927604ba6c5db0d4998828b2e6e9d1681695c9e5393c6f0800e69494
+    hash: f2908c188facd84c0b18d87e7d6185fb3a6ef547ca73135d98deddf91a0be71a
     path: patches/@google__gemini-cli-core@0.22.4.patch
   ai-sdk-provider-codex-cli:
     hash: f03e97c6c3a30f78e250b70aaf916b8daa9155e9f311ef3bfd2b7bd3dde0a02b
@@ -5484,7 +5484,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.10': {}
 
-  '@google/gemini-cli-core@0.22.4(patch_hash=bc3ccafe927604ba6c5db0d4998828b2e6e9d1681695c9e5393c6f0800e69494)(encoding@0.1.13)(hono@4.11.4)':
+  '@google/gemini-cli-core@0.22.4(patch_hash=f2908c188facd84c0b18d87e7d6185fb3a6ef547ca73135d98deddf91a0be71a)(encoding@0.1.13)(hono@4.11.4)':
     dependencies:
       '@google-cloud/logging': 'link:'
       '@google-cloud/opentelemetry-cloud-monitoring-exporter': 'link:'
@@ -6695,7 +6695,7 @@ snapshots:
     dependencies:
       '@ai-sdk/provider': 3.0.4
       '@ai-sdk/provider-utils': 4.0.8(zod@4.3.5)
-      '@google/gemini-cli-core': 0.22.4(patch_hash=bc3ccafe927604ba6c5db0d4998828b2e6e9d1681695c9e5393c6f0800e69494)(encoding@0.1.13)(hono@4.11.4)
+      '@google/gemini-cli-core': 0.22.4(patch_hash=f2908c188facd84c0b18d87e7d6185fb3a6ef547ca73135d98deddf91a0be71a)(encoding@0.1.13)(hono@4.11.4)
       '@google/genai': 1.30.0(@modelcontextprotocol/sdk@1.25.2(hono@4.11.4)(zod@3.25.76))
       google-auth-library: 9.15.1(encoding@0.1.13)
       zod: 4.3.5
