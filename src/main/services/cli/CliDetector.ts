@@ -1,6 +1,8 @@
 import type { AgentCliInfo, BuiltinAgentId, CustomAgent } from '@shared/types';
 import { execInPty } from '../../utils/shell';
 
+const isWindows = process.platform === 'win32';
+
 /**
  * Check if an error is a timeout error
  */
@@ -80,7 +82,9 @@ class CliDetector {
     try {
       // Use customPath if provided, otherwise use default command
       const effectiveCommand = customPath || config.command;
-      const stdout = await execInPty(`${effectiveCommand} ${config.versionFlag}`);
+      // Windows: use 60s timeout due to slower shell initialization (PowerShell, WSL)
+      const timeout = isWindows ? 60000 : 15000;
+      const stdout = await execInPty(`${effectiveCommand} ${config.versionFlag}`, { timeout });
 
       let version: string | undefined;
       if (config.versionRegex) {
@@ -111,7 +115,9 @@ class CliDetector {
 
   private async detectCustom(agent: CustomAgent): Promise<AgentCliInfo> {
     try {
-      const stdout = await execInPty(`${agent.command} --version`);
+      // Windows: use 60s timeout due to slower shell initialization (PowerShell, WSL)
+      const timeout = isWindows ? 60000 : 15000;
+      const stdout = await execInPty(`${agent.command} --version`, { timeout });
 
       const match = stdout.match(/(\d+\.\d+\.\d+)/);
       const version = match ? match[1] : undefined;
