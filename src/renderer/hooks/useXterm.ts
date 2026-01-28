@@ -423,15 +423,16 @@ export function useXterm({
           return false;
         }
       }
-      // Cmd/Ctrl+1-9 (switch to tab by number)
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        !event.shiftKey &&
-        !event.altKey &&
-        event.key >= '1' &&
-        event.key <= '9'
-      ) {
-        return false;
+      // Cmd/Ctrl+1-9 or Option+1-9: let global shortcuts handle panel/tab switching
+      // Use event.code for keyboard layout independence (Option+1 may produce special chars)
+      const isDigit1to9 = event.code >= 'Digit1' && event.code <= 'Digit9';
+      if (isDigit1to9) {
+        const hasModifier =
+          ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey) ||
+          (event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey);
+        if (hasModifier) {
+          return false;
+        }
       }
 
       // Handle copy - paste is NOT intercepted to allow image paste in agents
