@@ -1,3 +1,5 @@
+import { joinPath } from '@shared/utils/path';
+import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowDown,
@@ -30,7 +32,13 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { toastManager } from '@/components/ui/toast';
-import { useGitPull, useGitPush, useGitStatus } from '@/hooks/useGit';
+import {
+  useGitBranches,
+  useGitCheckout,
+  useGitPull,
+  useGitPush,
+  useGitStatus,
+} from '@/hooks/useGit';
 import { useCommitDiff, useCommitFiles, useGitHistoryInfinite } from '@/hooks/useGitHistory';
 import { useFileChanges, useGitFetch } from '@/hooks/useSourceControl';
 import { useSubmoduleFileDiff, useSubmodules } from '@/hooks/useSubmodules';
@@ -38,6 +46,7 @@ import { useI18n } from '@/i18n';
 import { heightVariants, springFast } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { useSourceControlStore } from '@/stores/sourceControl';
+import { BranchSwitcher } from './BranchSwitcher';
 import { ChangesList } from './ChangesList';
 import { CommitBox } from './CommitBox';
 import { CommitDiffViewer } from './CommitDiffViewer';
@@ -64,6 +73,7 @@ export function SourceControlPanel({
   sessionId,
 }: SourceControlPanelProps) {
   const { t, tNode } = useI18n();
+  const queryClient = useQueryClient();
 
   // Accordion state - collapsible sections
   const [changesExpanded, setChangesExpanded] = useState(true);
@@ -85,6 +95,13 @@ export function SourceControlPanel({
   const [selectedCommitFile, setSelectedCommitFile] = useState<string | null>(null);
   const [expandedCommitHash, setExpandedCommitHash] = useState<string | null>(null);
 
+  // Submodule commit history state
+  const [selectedSubmoduleCommit, setSelectedSubmoduleCommit] = useState<{
+    hash: string;
+    filePath: string | null;
+    submodulePath: string;
+  } | null>(null);
+
   const {
     data: fileChangesResult,
     isLoading,
@@ -101,6 +118,14 @@ export function SourceControlPanel({
   const pullMutation = useGitPull();
   const fetchMutation = useGitFetch();
   const isSyncing = pushMutation.isPending || pullMutation.isPending;
+
+  // Branch switching
+  const {
+    data: branches = [],
+    isLoading: branchesLoading,
+    refetch: refetchBranches,
+  } = useGitBranches(rootPath ?? null);
+  const checkoutMutation = useGitCheckout();
 
   // Submodules
   const { data: submodules = [] } = useSubmodules(rootPath ?? null);
@@ -128,8 +153,11 @@ export function SourceControlPanel({
       refetch();
       refetchCommits();
       refetchStatus();
+      // Also refresh submodules data
+      queryClient.invalidateQueries({ queryKey: ['git', 'submodules', rootPath] });
+      queryClient.invalidateQueries({ queryKey: ['git', 'submodule', 'changes', rootPath] });
     }
-  }, [isActive, rootPath, refetch, refetchCommits, refetchStatus]);
+  }, [isActive, rootPath, refetch, refetchCommits, refetchStatus, queryClient]);
 
   // Sync handler: pull first (if behind), then push (if ahead)
   const handleSync = useCallback(async () => {
@@ -208,6 +236,36 @@ export function SourceControlPanel({
     }
   }, [rootPath, gitStatus?.current, pushMutation, refetch, refetchCommits, refetchStatus, t]);
 
+  // Branch checkout handler
+  const handleBranchCheckout = useCallback(
+    async (branch: string) => {
+      if (!rootPath || checkoutMutation.isPending) return;
+
+      try {
+        await checkoutMutation.mutateAsync({ workdir: rootPath, branch });
+        refetch();
+        refetchBranches();
+        refetchCommits();
+        refetchStatus();
+
+        toastManager.add({
+          title: t('Branch switched'),
+          description: t('Branch switched to {{branch}}', { branch }),
+          type: 'success',
+          timeout: 3000,
+        });
+      } catch (error) {
+        toastManager.add({
+          title: t('Failed to switch branch'),
+          description: error instanceof Error ? error.message : String(error),
+          type: 'error',
+          timeout: 5000,
+        });
+      }
+    },
+    [rootPath, checkoutMutation, refetch, refetchBranches, refetchCommits, refetchStatus, t]
+  );
+
   // Flatten infinite query data
   const commits = commitsData?.pages.flat() ?? [];
   const { data: commitFiles = [], isLoading: commitFilesLoading } = useCommitFiles(
@@ -223,6 +281,15 @@ export function SourceControlPanel({
     selectedCommitHash,
     selectedCommitFile,
     selectedFileStatus
+  );
+
+  // Submodule commit diff
+  const { data: submoduleCommitDiff, isLoading: submoduleCommitDiffLoading } = useCommitDiff(
+    rootPath ?? null,
+    selectedSubmoduleCommit?.hash ?? null,
+    selectedSubmoduleCommit?.filePath ?? null,
+    undefined,
+    selectedSubmoduleCommit?.submodulePath ?? null
   );
 
   const { selectedFile, setSelectedFile, setNavigationDirection } = useSourceControlStore();
@@ -309,6 +376,19 @@ export function SourceControlPanel({
   const handleCommitFileClick = useCallback(
     (filePath: string) => {
       setSelectedCommitFile(filePath);
+      setNavigationDirection('next');
+    },
+    [setNavigationDirection]
+  );
+
+  // Handle file click in submodule commit history view
+  const handleSubmoduleCommitFileClick = useCallback(
+    (hash: string, filePath: string, submodulePath: string) => {
+      setSelectedSubmoduleCommit({ hash, filePath, submodulePath });
+      // Clear other selections
+      setSelectedCommitHash(null);
+      setSelectedCommitFile(null);
+      setSelectedSubmoduleFile(null);
       setNavigationDirection('next');
     },
     [setNavigationDirection]
@@ -439,8 +519,19 @@ export function SourceControlPanel({
                       )}
                     />
                     <GitBranch className="h-4 w-4" />
-                    <span className="text-sm font-medium">{t('Changes')}</span>
+                    <span className="text-sm font-medium shrink-0">{t('Changes')}</span>
                   </button>
+
+                  {/* Branch Switcher */}
+                  <BranchSwitcher
+                    currentBranch={gitStatus?.current ?? null}
+                    branches={branches}
+                    onCheckout={handleBranchCheckout}
+                    isLoading={branchesLoading}
+                    isCheckingOut={checkoutMutation.isPending}
+                    size="sm"
+                  />
+
                   <button
                     type="button"
                     onClick={() => setSidebarCollapsed(true)}
@@ -644,6 +735,13 @@ export function SourceControlPanel({
                     onToggle={() => handleSubmoduleToggle(submodule.path)}
                     selectedFile={selectedSubmoduleFile}
                     onFileClick={handleSubmoduleFileClick}
+                    selectedCommitFile={
+                      selectedSubmoduleCommit?.submodulePath === submodule.path
+                        ? selectedSubmoduleCommit.filePath
+                        : null
+                    }
+                    onCommitFileClick={handleSubmoduleCommitFileClick}
+                    onClearCommitSelection={() => setSelectedSubmoduleCommit(null)}
                   />
                 ))}
             </motion.div>
@@ -680,10 +778,21 @@ export function SourceControlPanel({
                 sessionId={sessionId}
               />
             </div>
+          ) : selectedSubmoduleCommit?.filePath ? (
+            <div className="flex-1 overflow-hidden">
+              <CommitDiffViewer
+                rootPath={joinPath(rootPath, selectedSubmoduleCommit.submodulePath)}
+                fileDiff={submoduleCommitDiff}
+                filePath={selectedSubmoduleCommit.filePath}
+                isActive={isActive}
+                isLoading={submoduleCommitDiffLoading}
+                sessionId={sessionId}
+              />
+            </div>
           ) : selectedSubmoduleFile ? (
             <div className="flex-1 overflow-hidden">
               <DiffViewer
-                rootPath={`${rootPath}/${selectedSubmoduleFile.submodulePath}`.replace(/\\/g, '/')}
+                rootPath={joinPath(rootPath, selectedSubmoduleFile.submodulePath)}
                 file={{ path: selectedSubmoduleFile.path, staged: selectedSubmoduleFile.staged }}
                 diff={submoduleFileDiff ?? undefined}
                 skipFetch={true}

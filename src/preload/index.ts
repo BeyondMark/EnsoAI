@@ -32,10 +32,12 @@ import type {
   MergeState,
   ProxySettings,
   PullRequest,
+  RecentEditorProject,
   ShellConfig,
   ShellInfo,
   TerminalCreateOptions,
   TerminalResizeOptions,
+  ValidateLocalPathResult,
   ValidateUrlResult,
   WorktreeCreateOptions,
   WorktreeMergeCleanupOptions,
@@ -53,8 +55,13 @@ const electronAPI = {
   git: {
     getStatus: (workdir: string): Promise<GitStatus> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_STATUS, workdir),
-    getLog: (workdir: string, maxCount?: number, skip?: number): Promise<GitLogEntry[]> =>
-      ipcRenderer.invoke(IPC_CHANNELS.GIT_LOG, workdir, maxCount, skip),
+    getLog: (
+      workdir: string,
+      maxCount?: number,
+      skip?: number,
+      submodulePath?: string
+    ): Promise<GitLogEntry[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_LOG, workdir, maxCount, skip, submodulePath),
     getBranches: (workdir: string): Promise<GitBranch[]> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_BRANCH_LIST, workdir),
     createBranch: (workdir: string, name: string, startPoint?: string): Promise<void> =>
@@ -89,15 +96,27 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.GIT_DISCARD, workdir, paths),
     showCommit: (workdir: string, hash: string): Promise<string> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT_SHOW, workdir, hash),
-    getCommitFiles: (workdir: string, hash: string): Promise<CommitFileChange[]> =>
-      ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT_FILES, workdir, hash),
+    getCommitFiles: (
+      workdir: string,
+      hash: string,
+      submodulePath?: string
+    ): Promise<CommitFileChange[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT_FILES, workdir, hash, submodulePath),
     getCommitDiff: (
       workdir: string,
       hash: string,
       filePath: string,
-      status?: import('@shared/types').FileChangeStatus
+      status?: import('@shared/types').FileChangeStatus,
+      submodulePath?: string
     ): Promise<FileDiff> =>
-      ipcRenderer.invoke(IPC_CHANNELS.GIT_COMMIT_DIFF, workdir, hash, filePath, status),
+      ipcRenderer.invoke(
+        IPC_CHANNELS.GIT_COMMIT_DIFF,
+        workdir,
+        hash,
+        filePath,
+        status,
+        submodulePath
+      ),
     getDiffStats: (workdir: string): Promise<{ insertions: number; deletions: number }> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_DIFF_STATS, workdir),
     generateCommitMessage: (
@@ -161,6 +180,8 @@ const electronAPI = {
     // Git Clone
     validateUrl: (url: string): Promise<ValidateUrlResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_VALIDATE_URL, url),
+    validateLocalPath: (path: string): Promise<ValidateLocalPathResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.GIT_VALIDATE_LOCAL_PATH, path),
     clone: (remoteUrl: string, targetPath: string): Promise<CloneResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_CLONE, remoteUrl, targetPath),
     onCloneProgress: (callback: (progress: CloneProgress) => void): (() => void) => {
@@ -432,6 +453,8 @@ const electronAPI = {
     ): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_WITH, path, bundleId, options),
     getIcon: (bundleId: string): Promise<string | undefined> =>
       ipcRenderer.invoke(IPC_CHANNELS.APP_GET_ICON, bundleId),
+    getRecentProjects: (): Promise<RecentEditorProject[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.APP_RECENT_PROJECTS),
   },
 
   // CLI Detector
