@@ -576,6 +576,9 @@ interface SettingsState {
   autoCreateSessionOnActivate: boolean; // Auto-create agent/terminal session when worktree becomes active
   // Beta features
   glowEffectEnabled: boolean; // Enable glow animation effect for AI output states (Beta)
+  temporaryWorkspaceEnabled: boolean; // Enable Temp Session (Beta)
+  defaultTemporaryPath: string; // Default path for temp sessions
+  autoCreateSessionOnTempActivate: boolean; // Auto-create agent/terminal session when temp session becomes active
   // MCP, Prompts management
   mcpServers: McpServer[];
   promptPresets: PromptPreset[];
@@ -590,6 +593,8 @@ interface SettingsState {
   quickTerminal: QuickTerminalSettings;
   // Web Inspector settings
   webInspectorEnabled: boolean;
+  // Hide Groups setting
+  hideGroups: boolean;
 
   setTheme: (theme: Theme) => void;
   setLayoutMode: (mode: LayoutMode) => void;
@@ -645,6 +650,9 @@ interface SettingsState {
   setAutoCreateSessionOnActivate: (enabled: boolean) => void;
   // Beta features
   setGlowEffectEnabled: (enabled: boolean) => void;
+  setTemporaryWorkspaceEnabled: (enabled: boolean) => void;
+  setDefaultTemporaryPath: (path: string) => void;
+  setAutoCreateSessionOnTempActivate: (enabled: boolean) => void;
   // MCP management
   addMcpServer: (server: McpServer) => void;
   updateMcpServer: (id: string, updates: Partial<McpServer>) => void;
@@ -672,6 +680,8 @@ interface SettingsState {
   setQuickTerminalOpen: (open: boolean) => void;
   // Web Inspector methods
   setWebInspectorEnabled: (enabled: boolean) => void;
+  // Hide Groups method
+  setHideGroups: (hide: boolean) => void;
 }
 
 const defaultAgentSettings: AgentSettings = {
@@ -731,6 +741,9 @@ export const useSettingsStore = create<SettingsState>()(
       autoCreateSessionOnActivate: false, // Default: don't auto-create sessions
       // Beta features
       glowEffectEnabled: false, // Default: disabled, use classic dot indicator
+      temporaryWorkspaceEnabled: false,
+      defaultTemporaryPath: '', // Empty means use default ~/ensoai/temporary
+      autoCreateSessionOnTempActivate: false,
       // MCP, Prompts defaults
       mcpServers: [],
       promptPresets: [],
@@ -750,6 +763,8 @@ export const useSettingsStore = create<SettingsState>()(
       },
       // Web Inspector defaults
       webInspectorEnabled: false,
+      // Hide Groups default
+      hideGroups: false,
 
       setTheme: (theme) => {
         const terminalTheme = get().terminalTheme;
@@ -969,6 +984,11 @@ export const useSettingsStore = create<SettingsState>()(
         set({ autoCreateSessionOnActivate }),
       // Beta features
       setGlowEffectEnabled: (glowEffectEnabled) => set({ glowEffectEnabled }),
+      setTemporaryWorkspaceEnabled: (temporaryWorkspaceEnabled) =>
+        set({ temporaryWorkspaceEnabled }),
+      setDefaultTemporaryPath: (defaultTemporaryPath) => set({ defaultTemporaryPath }),
+      setAutoCreateSessionOnTempActivate: (autoCreateSessionOnTempActivate) =>
+        set({ autoCreateSessionOnTempActivate }),
       // MCP management
       addMcpServer: (server) =>
         set((state) => ({
@@ -1075,6 +1095,8 @@ export const useSettingsStore = create<SettingsState>()(
           await window.electronAPI.webInspector.stop();
         }
       },
+      // Hide Groups method
+      setHideGroups: (hideGroups) => set({ hideGroups }),
     }),
     {
       name: 'enso-settings',
