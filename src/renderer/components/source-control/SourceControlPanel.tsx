@@ -52,7 +52,7 @@ import { CommitHistoryList } from './CommitHistoryList';
 import { panelTransition } from './constants';
 import { DiffViewer } from './DiffViewer';
 import { RepositoryList } from './RepositoryList';
-import type { Repository, SelectedFile } from './types';
+import type { Repository } from './types';
 import { usePanelResize } from './usePanelResize';
 
 interface SourceControlPanelProps {
@@ -95,7 +95,7 @@ export function SourceControlPanel({
   const [expandedCommitHash, setExpandedCommitHash] = useState<string | null>(null);
 
   // Submodule commit history state
-  const [selectedSubmoduleCommit, setSelectedSubmoduleCommit] = useState<{
+  const [selectedSubmoduleCommit, _setSelectedSubmoduleCommit] = useState<{
     hash: string;
     filePath: string | null;
     submodulePath: string;
@@ -236,6 +236,15 @@ export function SourceControlPanel({
     refetch: refetchCommits,
   } = useGitHistoryInfinite(rootPath ?? null, 20);
 
+  // Ensure a repository is selected when repositories are available
+  // This fixes the issue where no repository is selected when switching to source control tab
+  useEffect(() => {
+    if (repositories.length > 0 && !selectedRepo) {
+      // Default to main repository (first in list)
+      setSelectedSubmodulePath(null);
+    }
+  }, [repositories.length, selectedRepo]);
+
   // Refetch immediately when tab becomes active
   useEffect(() => {
     if (isActive && rootPath) {
@@ -283,19 +292,41 @@ export function SourceControlPanel({
         refetch();
         refetchCommits();
 
-        if (pulled || pushed) {
-          const actions = [pulled && t('Pulled'), pushed && t('Pushed')]
-            .filter(Boolean)
-            .join(' & ');
+        const branch = repo.branch ?? '';
+        if (pulled && pushed) {
           toastManager.add({
             title: t('Sync completed'),
-            description: actions,
+            description: t(
+              'Pulled {{pulled}} commit(s), pushed {{pushed}} commit(s) on {{branch}}',
+              { pulled: repoBehind, pushed: repoAhead, branch }
+            ),
+            type: 'success',
+            timeout: 3000,
+          });
+        } else if (pulled) {
+          toastManager.add({
+            title: t('Sync completed'),
+            description: t('Pulled {{count}} commit(s) on {{branch}}', {
+              count: repoBehind,
+              branch,
+            }),
+            type: 'success',
+            timeout: 3000,
+          });
+        } else if (pushed) {
+          toastManager.add({
+            title: t('Sync completed'),
+            description: t('Pushed {{count}} commit(s) on {{branch}}', {
+              count: repoAhead,
+              branch,
+            }),
             type: 'success',
             timeout: 3000,
           });
         } else {
           toastManager.add({
             title: t('Already up to date'),
+            description: t('{{branch}} is in sync with remote', { branch }),
             type: 'success',
             timeout: 2000,
           });
@@ -425,7 +456,7 @@ export function SourceControlPanel({
   );
 
   // Submodule commit diff
-  const { data: submoduleCommitDiff, isLoading: submoduleCommitDiffLoading } = useCommitDiff(
+  const { data: _submoduleCommitDiff, isLoading: _submoduleCommitDiffLoading } = useCommitDiff(
     rootPath ?? null,
     selectedSubmoduleCommit?.hash ?? null,
     selectedSubmoduleCommit?.filePath ?? null,
