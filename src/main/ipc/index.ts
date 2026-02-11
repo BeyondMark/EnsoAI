@@ -8,12 +8,24 @@ import { registerClaudeConfigHandlers } from './claudeConfig';
 import { registerClaudeProviderHandlers } from './claudeProvider';
 import { registerCliHandlers } from './cli';
 import { registerDialogHandlers } from './dialog';
-import { registerFileHandlers, stopAllFileWatchers, stopAllFileWatchersSync } from './files';
+import {
+  cleanupTempFiles,
+  cleanupTempFilesSync,
+  registerFileHandlers,
+  stopAllFileWatchers,
+  stopAllFileWatchersSync,
+} from './files';
 import { clearAllGitServices, registerGitHandlers } from './git';
-import { autoStartHapi, cleanupHapi, registerHapiHandlers } from './hapi';
+import {
+  autoStartHapi,
+  cleanupHapi,
+  cleanupHapiSync,
+  registerHapiHandlers,
+} from './hapi';
 
 export { autoStartHapi };
 
+import { registerLogHandlers } from './log';
 import { registerNotificationHandlers } from './notification';
 import { registerSearchHandlers } from './search';
 import { registerSettingsHandlers } from './settings';
@@ -40,6 +52,7 @@ export function registerIpcHandlers(): void {
   registerCliHandlers();
   registerShellHandlers();
   registerSettingsHandlers();
+  registerLogHandlers();
   registerNotificationHandlers();
   registerUpdaterHandlers();
   registerSearchHandlers();
@@ -54,8 +67,8 @@ export function registerIpcHandlers(): void {
 export async function cleanupAllResources(): Promise<void> {
   const CLEANUP_TIMEOUT = 3000;
 
-  // Stop Hapi server first (sync, fast)
-  cleanupHapi();
+  // Stop Hapi server first (graceful best-effort with timeout)
+  await cleanupHapi(CLEANUP_TIMEOUT);
 
   // Kill tmux enso server (async, fast)
   cleanupTmux().catch((err) => console.warn('Tmux cleanup warning:', err));
@@ -101,6 +114,9 @@ export async function cleanupAllResources(): Promise<void> {
 
   // Dispose Claude IDE Bridge
   disposeClaudeIdeBridge();
+
+  // Clean up temp files
+  await cleanupTempFiles();
 }
 
 /**
@@ -112,7 +128,7 @@ export function cleanupAllResourcesSync(): void {
   console.log('[app] Sync cleanup starting...');
 
   // Kill Hapi/Cloudflared processes (sync)
-  cleanupHapi();
+  cleanupHapiSync();
 
   // Kill tmux enso server (sync)
   cleanupTmuxSync();
@@ -137,6 +153,9 @@ export function cleanupAllResourcesSync(): void {
 
   // Dispose Claude IDE Bridge (sync)
   disposeClaudeIdeBridge();
+
+  // Clean up temp files (sync)
+  cleanupTempFilesSync();
 
   console.log('[app] Sync cleanup done');
 }

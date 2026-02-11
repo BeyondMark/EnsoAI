@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import 'electron-log/preload.js';
 import type { Locale } from '@shared/i18n';
 import type {
   AgentCliInfo,
@@ -148,6 +149,7 @@ const electronAPI = {
         reviewId: string;
         language?: string;
         sessionId?: string; // Restore this parameter for "Continue Conversation"
+        prompt?: string; // Custom prompt template
       }
     ): Promise<{ success: boolean; error?: string; sessionId?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.GIT_CODE_REVIEW_START, workdir, options),
@@ -295,6 +297,11 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.FILE_READ, filePath),
     write: (filePath: string, content: string, encoding?: string): Promise<void> =>
       ipcRenderer.invoke(IPC_CHANNELS.FILE_WRITE, filePath, content, encoding),
+    saveToTemp: (
+      filename: string,
+      data: Uint8Array
+    ): Promise<{ success: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILE_SAVE_TO_TEMP, filename, data),
     createFile: (
       filePath: string,
       content = '',
@@ -541,6 +548,19 @@ const electronAPI = {
       ipcRenderer.on(IPC_CHANNELS.WINDOW_MAXIMIZED_CHANGED, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.WINDOW_MAXIMIZED_CHANGED, handler);
     },
+    onDevToolsStateChange: (callback: (isOpen: boolean) => void): (() => void) => {
+      const handler = (_: unknown, isOpen: boolean) => callback(isOpen);
+      ipcRenderer.on(IPC_CHANNELS.WINDOW_DEVTOOLS_STATE_CHANGED, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.WINDOW_DEVTOOLS_STATE_CHANGED, handler);
+    },
+    setTrafficLightsVisible: (visible: boolean): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WINDOW_SET_TRAFFIC_LIGHTS_VISIBLE, visible),
+    isFullScreen: (): Promise<boolean> => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_IS_FULLSCREEN),
+    onFullScreenChange: (callback: (isFullScreen: boolean) => void): (() => void) => {
+      const handler = (_: unknown, isFullScreen: boolean) => callback(isFullScreen);
+      ipcRenderer.on(IPC_CHANNELS.WINDOW_FULLSCREEN_CHANGED, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.WINDOW_FULLSCREEN_CHANGED, handler);
+    },
   },
 
   // Notification
@@ -760,6 +780,7 @@ const electronAPI = {
       telegramBotToken: string;
       webappUrl: string;
       allowedChatIds: string;
+      runnerEnabled?: boolean;
     }): Promise<{
       running: boolean;
       ready?: boolean;
@@ -775,6 +796,7 @@ const electronAPI = {
       telegramBotToken: string;
       webappUrl: string;
       allowedChatIds: string;
+      runnerEnabled?: boolean;
     }): Promise<{
       running: boolean;
       ready?: boolean;
@@ -804,6 +826,35 @@ const electronAPI = {
       ) => callback(status);
       ipcRenderer.on(IPC_CHANNELS.HAPI_STATUS_CHANGED, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.HAPI_STATUS_CHANGED, handler);
+    },
+  },
+
+  // Hapi Runner
+  hapiRunner: {
+    start: (): Promise<{
+      running: boolean;
+      pid?: number;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.HAPI_RUNNER_START),
+    stop: (): Promise<{
+      running: boolean;
+      pid?: number;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.HAPI_RUNNER_STOP),
+    getStatus: (): Promise<{
+      running: boolean;
+      pid?: number;
+      error?: string;
+    }> => ipcRenderer.invoke(IPC_CHANNELS.HAPI_RUNNER_GET_STATUS),
+    onStatusChanged: (
+      callback: (status: { running: boolean; pid?: number; error?: string }) => void
+    ): (() => void) => {
+      const handler = (
+        _: unknown,
+        status: { running: boolean; pid?: number; error?: string }
+      ) => callback(status);
+      ipcRenderer.on(IPC_CHANNELS.HAPI_RUNNER_STATUS_CHANGED, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.HAPI_RUNNER_STATUS_CHANGED, handler);
     },
   },
 
@@ -883,6 +934,16 @@ const electronAPI = {
       ipcRenderer.on('web-inspector:data', handler);
       return () => ipcRenderer.off('web-inspector:data', handler);
     },
+  },
+
+  // Logging
+  log: {
+    updateConfig: (config: {
+      enabled: boolean;
+      level: 'error' | 'warn' | 'info' | 'debug';
+    }): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.LOG_UPDATE_CONFIG, config),
+    openFolder: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.LOG_OPEN_FOLDER),
+    getPath: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.LOG_GET_PATH),
   },
 
   // Utilities
