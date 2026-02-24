@@ -34,6 +34,8 @@ interface AgentTerminalProps {
   onEnhancedInputOpenChange?: (open: boolean) => void;
   onInitialized?: () => void;
   onActivated?: () => void;
+  /** Called when session is activated with the current line content (for session name fallback). */
+  onActivatedWithFirstLine?: (line: string) => void;
   onExit?: () => void;
   onTerminalTitleChange?: (title: string) => void;
   onSplit?: () => void;
@@ -70,6 +72,7 @@ export function AgentTerminal({
   onEnhancedInputOpenChange,
   onInitialized,
   onActivated,
+  onActivatedWithFirstLine,
   onExit,
   onTerminalTitleChange,
   onSplit,
@@ -132,6 +135,7 @@ export function AgentTerminal({
   const consecutiveIdleCountRef = useRef(0); // Count consecutive idle polls
   const ptyIdRef = useRef<string | null>(null); // Store PTY ID for activity checks
   const isActiveRef = useRef(isActive); // Track latest isActive value for interval callback
+  const lastCommandWasSlashCommand = useRef(false); // Track if last command was a slash command
   const setOutputState = useAgentSessionsStore((s) => s.setOutputState);
   const markSessionActive = useAgentSessionsStore((s) => s.markSessionActive);
   const clearRuntimeState = useAgentSessionsStore((s) => s.clearRuntimeState);
@@ -224,15 +228,7 @@ export function AgentTerminal({
           // If we have enough output, show the indicator
           if (outputSinceEnterRef.current > MIN_OUTPUT_FOR_INDICATOR) {
             updateOutputState('outputting');
-            // Also update worktree activity state to 'running'.
-            // Do not override hook-driven states ('waiting_input'/'completed');
-            // these should only transition back to running on next user Enter.
-            if (cwd) {
-              const currentState = getActivityState(cwd);
-              if (currentState === 'idle' || currentState === 'running') {
-                setActivityState(cwd, 'running');
-              }
-            }
+            // Activity state is now managed by Hook notifications only
           }
         } else {
           // Process is idle AND no recent output
@@ -241,6 +237,9 @@ export function AgentTerminal({
           if (consecutiveIdleCountRef.current >= IDLE_CONFIRMATION_COUNT) {
             updateOutputState('idle');
             isMonitoringOutputRef.current = false;
+
+            // Activity state is now managed by Hook notifications only
+
             // Stop polling when confirmed idle
             if (activityPollIntervalRef.current) {
               clearInterval(activityPollIntervalRef.current);
@@ -252,7 +251,7 @@ export function AgentTerminal({
         // Error checking activity, ignore
       }
     }, ACTIVITY_POLL_INTERVAL_MS);
-  }, [updateOutputState, cwd, setActivityState, getActivityState]);
+  }, [updateOutputState]);
 
   // Stop polling for process activity
   const stopActivityPolling = useCallback(() => {
@@ -544,8 +543,9 @@ export function AgentTerminal({
 
   // Handle Shift+Enter for newline (Ctrl+J / LF for all agents)
   // Also detect Enter key press to mark session as activated
+  // biome-ignore lint/correctness/useExhaustiveDependencies: terminal is accessed via try-catch for safety and defined after this callback
   const handleCustomKey = useCallback(
-    (event: KeyboardEvent, ptyId: string) => {
+    (event: KeyboardEvent, ptyId: string, getCurrentLine?: () => string | null) => {
       // Handle Shift+Enter for newline - must be before keydown check to block both keydown and keypress
       if (event.key === 'Enter' && event.shiftKey) {
         if (event.type === 'keydown') {
@@ -575,18 +575,41 @@ export function AgentTerminal({
         !event.altKey &&
         !event.isComposing
       ) {
-        // First Enter activates the session.
+        // First Enter activates the session; optionally pass current line for session name.
         if (!hasActivatedRef.current && !activated) {
           hasActivatedRef.current = true;
           onActivated?.();
+          if (getCurrentLine && onActivatedWithFirstLine) {
+            const line = getCurrentLine();
+            if (line) onActivatedWithFirstLine(line);
+          }
         }
         // Reset output counter.
         dataSinceEnterRef.current = 0;
 
-        // Set activity state to 'running' immediately when user presses Enter
-        if (cwd) {
-          setActivityState(cwd, 'running');
+        // Detect if user entered a slash command (like /clear, /help, etc.)
+        // These commands don't trigger Claude and should quickly return to idle
+        let isSlashCommand = false;
+        if (terminal) {
+          try {
+            const cursorY = terminal.buffer.active.cursorY;
+            const line = terminal.buffer.active.getLine(cursorY);
+            if (line) {
+              const lineText = line.translateToString().trim();
+              isSlashCommand = lineText.startsWith('/');
+              lastCommandWasSlashCommand.current = isSlashCommand;
+              // Note: slash command detection enables 2s idle timeout for quick return to idle
+              if (isSlashCommand) {
+                console.log(`[AgentTerminal] Slash command: ${lineText.split(' ')[0]}`);
+              }
+            }
+          } catch {
+            // Ignore errors reading terminal buffer
+          }
         }
+
+        // Activity state is now managed by Hook notifications (PreToolUse, Stop, AskUserQuestion)
+        // Enter event no longer sets activity state to avoid conflicts with other terminals
 
         if (terminalSessionId && glowEffectEnabled) {
           isMonitoringOutputRef.current = true;
@@ -638,6 +661,7 @@ export function AgentTerminal({
     [
       activated,
       onActivated,
+      onActivatedWithFirstLine,
       agentNotificationEnterDelay,
       startActivityPolling,
       terminalSessionId,
@@ -648,6 +672,9 @@ export function AgentTerminal({
       claudeCodeIntegration.enhancedInputEnabled,
       enhancedInputOpen,
       setEnhancedInputOpen,
+      getActivityState,
+      // Note: terminal is excluded as it's defined after this callback
+      // and accessed via try-catch for safety
     ]
   );
 

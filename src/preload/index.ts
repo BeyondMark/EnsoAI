@@ -511,6 +511,44 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_WRITE, data),
   },
 
+  // Todo
+  todo: {
+    getTasks: (repoPath: string): Promise<unknown[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TODO_GET_TASKS, repoPath),
+    addTask: (
+      repoPath: string,
+      task: {
+        id: string;
+        title: string;
+        description: string;
+        priority: string;
+        status: string;
+        order: number;
+        createdAt: number;
+        updatedAt: number;
+      }
+    ): Promise<unknown> => ipcRenderer.invoke(IPC_CHANNELS.TODO_ADD_TASK, repoPath, task),
+    updateTask: (
+      repoPath: string,
+      taskId: string,
+      updates: { title?: string; description?: string; priority?: string; status?: string }
+    ): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TODO_UPDATE_TASK, repoPath, taskId, updates),
+    deleteTask: (repoPath: string, taskId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TODO_DELETE_TASK, repoPath, taskId),
+    moveTask: (
+      repoPath: string,
+      taskId: string,
+      newStatus: string,
+      newOrder: number
+    ): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TODO_MOVE_TASK, repoPath, taskId, newStatus, newOrder),
+    reorderTasks: (repoPath: string, status: string, orderedIds: string[]): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TODO_REORDER_TASKS, repoPath, status, orderedIds),
+    migrate: (boardsJson: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TODO_MIGRATE, boardsJson),
+  },
+
   // Environment
   env: {
     HOME: process.env.HOME || process.env.USERPROFILE || '',
@@ -576,18 +614,26 @@ const electronAPI = {
       ipcRenderer.on(IPC_CHANNELS.NOTIFICATION_CLICK, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.NOTIFICATION_CLICK, handler);
     },
-    onAgentStop: (callback: (data: { sessionId: string }) => void): (() => void) => {
-      const handler = (_: unknown, data: { sessionId: string }) => callback(data);
+    onAgentStop: (callback: (data: { sessionId: string; cwd?: string }) => void): (() => void) => {
+      const handler = (_: unknown, data: { sessionId: string; cwd?: string }) => callback(data);
       ipcRenderer.on(IPC_CHANNELS.AGENT_STOP_NOTIFICATION, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.AGENT_STOP_NOTIFICATION, handler);
     },
     onAskUserQuestion: (
-      callback: (data: { sessionId: string; toolInput: unknown }) => void
+      callback: (data: { sessionId: string; toolInput: unknown; cwd?: string }) => void
     ): (() => void) => {
-      const handler = (_: unknown, data: { sessionId: string; toolInput: unknown }) =>
+      const handler = (_: unknown, data: { sessionId: string; toolInput: unknown; cwd?: string }) =>
         callback(data);
       ipcRenderer.on(IPC_CHANNELS.AGENT_ASK_USER_QUESTION_NOTIFICATION, handler);
       return () => ipcRenderer.off(IPC_CHANNELS.AGENT_ASK_USER_QUESTION_NOTIFICATION, handler);
+    },
+    onPreToolUse: (
+      callback: (data: { sessionId: string; toolName: string; cwd?: string }) => void
+    ): (() => void) => {
+      const handler = (_: unknown, data: { sessionId: string; toolName: string; cwd?: string }) =>
+        callback(data);
+      ipcRenderer.on(IPC_CHANNELS.AGENT_PRE_TOOL_USE_NOTIFICATION, handler);
+      return () => ipcRenderer.off(IPC_CHANNELS.AGENT_PRE_TOOL_USE_NOTIFICATION, handler);
     },
     onAgentStatusUpdate: (
       callback: (data: {

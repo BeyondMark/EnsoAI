@@ -4,13 +4,11 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { type FileEntry, type FileReadResult, IPC_CHANNELS } from '@shared/types';
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import iconv from 'iconv-lite';
+import { isBinaryFile } from 'isbinaryfile';
 import jschardet from 'jschardet';
-import simpleGit from 'simple-git';
 import { FileWatcher } from '../services/files/FileWatcher';
 import { registerAllowedLocalFileRoot } from '../services/files/LocalFileAccess';
-import { withSafeDirectoryEnv } from '../services/git/safeDirectory';
-import { getProxyEnvVars } from '../services/proxy/ProxyConfig';
-import { getEnhancedPath } from '../services/terminal/PtyManager';
+import { createSimpleGit, normalizeGitRelativePath } from '../services/git/runtime';
 
 /**
  * Normalize encoding name to a consistent format
@@ -127,6 +125,35 @@ export function registerFileHandlers(): void {
   );
 
   ipcMain.handle(IPC_CHANNELS.FILE_READ, async (_, filePath: string): Promise<FileReadResult> => {
+    // Design Decision: Binary File Detection
+    // ----------------------------------------
+    // We detect binary files BEFORE reading the full content to avoid:
+    // 1. Loading large binary files (videos, executables) into memory
+    // 2. Performance issues from decoding binary content as text
+    // 3. Monaco editor freezing when rendering binary garbage
+    //
+    // The isbinaryfile library only reads the first 512 bytes for detection.
+    // If detection fails, we fall back to treating it as a text file.
+    // The renderer decides whether to show "unsupported" message based on
+    // file extension (images/PDFs have dedicated preview components).
+    let isBinary = false;
+    try {
+      isBinary = await isBinaryFile(filePath);
+    } catch {
+      // If binary detection fails, assume it's a text file and continue
+    }
+
+    if (isBinary) {
+      return {
+        content: '',
+        encoding: 'binary',
+        detectedEncoding: 'binary',
+        confidence: 1,
+        isBinary: true,
+      };
+    }
+
+    // Only read full file content for non-binary files
     const buffer = await readFile(filePath);
     const { encoding: detectedEncoding, confidence } = detectEncoding(buffer);
 
@@ -223,21 +250,14 @@ export function registerFileHandlers(): void {
       // 检查 gitignore
       if (gitRoot) {
         try {
-          const git = simpleGit(gitRoot).env(
-            withSafeDirectoryEnv(
-              {
-                ...process.env,
-                ...getProxyEnvVars(),
-                PATH: getEnhancedPath(),
-              },
-              gitRoot
-            )
+          const git = createSimpleGit(gitRoot);
+          const relativePaths = result.map((f) =>
+            normalizeGitRelativePath(relative(gitRoot, f.path))
           );
-          const relativePaths = result.map((f) => relative(gitRoot, f.path));
           const ignoredResult = await git.checkIgnore(relativePaths);
-          const ignoredSet = new Set(ignoredResult);
+          const ignoredSet = new Set(ignoredResult.map((p) => normalizeGitRelativePath(p)));
           for (const file of result) {
-            const relPath = relative(gitRoot, file.path);
+            const relPath = normalizeGitRelativePath(relative(gitRoot, file.path));
             file.ignored = ignoredSet.has(relPath);
           }
         } catch {
